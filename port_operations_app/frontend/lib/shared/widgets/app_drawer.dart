@@ -219,6 +219,15 @@ class AppDrawer extends ConsumerWidget {
             },
           },
           {
+            'title': 'Labour Costs',
+            'icon': MdiIcons.accountGroup,
+            'color': AppColors.warning,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/labour');
+            },
+          },
+          {
             'title': 'Financial',
             'icon': Icons.currency_rupee,
             'color': AppColors.success,
@@ -266,6 +275,15 @@ class AppDrawer extends ConsumerWidget {
             'onTap': () {
               Navigator.pop(context);
               context.go('/equipment/history');
+            },
+          },
+          {
+            'title': 'Labour Costs',
+            'icon': MdiIcons.accountGroup,
+            'color': AppColors.warning,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/labour');
             },
           },
           {
@@ -317,6 +335,15 @@ class AppDrawer extends ConsumerWidget {
             'onTap': () {
               Navigator.pop(context);
               context.go('/equipment/history');
+            },
+          },
+          {
+            'title': 'Labour Costs',
+            'icon': MdiIcons.accountGroup,
+            'color': AppColors.warning,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/labour');
             },
           },
           {
@@ -378,6 +405,15 @@ class AppDrawer extends ConsumerWidget {
             'onTap': () {
               Navigator.pop(context);
               context.go('/wallet');
+            },
+          },
+          {
+            'title': 'Labour Costs',
+            'icon': MdiIcons.accountGroup,
+            'color': AppColors.warning,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/labour');
             },
           },
           {

@@ -12,6 +12,9 @@ import 'features/equipment/screens/equipment_history_screen.dart';
 import 'features/financial/financial_screen.dart';
 import 'features/wallet/wallet_screen.dart';
 import 'features/users/users_screen.dart';
+import 'features/labour/screens/labour_cost_list_screen.dart';
+import 'features/labour/screens/labour_cost_form_screen.dart';
+import 'features/labour/screens/labour_cost_detail_screen.dart';
 import 'features/auth/auth_service.dart';
 import 'core/constants/app_theme.dart';
 import 'core/constants/app_constants.dart';
@@ -208,6 +211,44 @@ class PortOperationsApp extends ConsumerWidget {
           path: '/settings',
           name: 'settings',
           builder: (context, state) => const _PlaceholderScreen(title: 'Settings'),
+        ),
+        // Labour Cost Routes
+        GoRoute(
+          path: '/labour',
+          name: 'labour',
+          builder: (context, state) => const LabourCostListScreen(),
+        ),
+        GoRoute(
+          path: '/labour/new',
+          name: 'labour-new',
+          builder: (context, state) {
+            final operationId = state.extra as int?;
+            return LabourCostFormScreen(operationId: operationId);
+          },
+        ),
+        GoRoute(
+          path: '/labour/:id',
+          name: 'labour-detail',
+          builder: (context, state) {
+            final id = int.parse(state.pathParameters['id']!);
+            return LabourCostDetailScreen(labourCostId: id);
+          },
+        ),
+        GoRoute(
+          path: '/labour/:id/edit',
+          name: 'labour-edit',
+          builder: (context, state) {
+            final id = int.parse(state.pathParameters['id']!);
+            return LabourCostFormScreen(labourCostId: id);
+          },
+        ),
+        GoRoute(
+          path: '/operations/:operationId/labour',
+          name: 'operation-labour',
+          builder: (context, state) {
+            final operationId = int.parse(state.pathParameters['operationId']!);
+            return LabourCostListScreen(operationId: operationId);
+          },
         ),
       ],
       errorBuilder: (context, state) => Scaffold(

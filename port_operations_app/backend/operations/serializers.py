@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import (
     CargoOperation, RateMaster, Equipment, TransportDetail, 
     LabourCost, MiscellaneousCost, RevenueStream,
-    VehicleType, WorkType, PartyMaster
+    VehicleType, WorkType, PartyMaster, ContractorMaster
 )
 
 class CargoOperationSerializer(serializers.ModelSerializer):
@@ -46,6 +46,16 @@ class PartyMasterSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = PartyMaster
+        fields = '__all__'
+        read_only_fields = ['created_by', 'created_at']
+    
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        return super().create(validated_data)
+
+class ContractorMasterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContractorMaster
         fields = '__all__'
         read_only_fields = ['created_by', 'created_at']
     
@@ -98,6 +108,8 @@ class TransportDetailSerializer(serializers.ModelSerializer):
 class LabourCostSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source='created_by.username', read_only=True)
     operation_name = serializers.CharField(source='operation.operation_name', read_only=True)
+    contractor_name = serializers.CharField(source='contractor.name', read_only=True)
+    contractor_id = serializers.IntegerField(source='contractor.id', read_only=True)
     
     class Meta:
         model = LabourCost

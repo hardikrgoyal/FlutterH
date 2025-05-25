@@ -89,6 +89,21 @@ class PartyMaster(models.Model):
     class Meta:
         ordering = ['name']
 
+class ContractorMaster(models.Model):
+    """
+    Master data for labour contractors
+    """
+    name = models.CharField(max_length=100, unique=True)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        ordering = ['name']
+
 class Equipment(models.Model):
     """
     Equipment tracking for hired equipment
@@ -227,13 +242,19 @@ class LabourCost(models.Model):
     
     operation = models.ForeignKey(CargoOperation, on_delete=models.CASCADE, related_name='labour_costs')
     date = models.DateField()
-    contractor_name = models.CharField(max_length=100)
+    contractor = models.ForeignKey(ContractorMaster, on_delete=models.CASCADE)
     labour_type = models.CharField(max_length=20, choices=LABOUR_TYPE_CHOICES)
     work_type = models.CharField(max_length=20, choices=WORK_TYPE_CHOICES)
     labour_count_tonnage = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     rate = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     remarks = models.TextField(blank=True, null=True)
+    
+    # Invoice tracking fields
+    invoice_number = models.CharField(max_length=100, blank=True, null=True)
+    invoice_received = models.BooleanField(default=False)  # Default to Pending
+    invoice_date = models.DateField(blank=True, null=True)
+    
     created_by = models.ForeignKey(User, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -244,7 +265,7 @@ class LabourCost(models.Model):
         super().save(*args, **kwargs)
     
     def __str__(self):
-        return f"{self.contractor_name} - {self.labour_type} ({self.operation.operation_name})"
+        return f"{self.contractor.name} - {self.labour_type} ({self.operation.operation_name})"
     
     class Meta:
         ordering = ['-date']

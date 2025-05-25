@@ -47,6 +47,18 @@ class User {
   bool get isSupervisor => role == 'supervisor';
   bool get isAccountant => role == 'accountant';
 
+  // Permission helper methods
+  bool get canCreateOperations => isAdmin || isManager;
+  bool get canManageEquipment => isAdmin || isManager || isSupervisor;
+  bool get canApproveExpenses => isAdmin || isManager || isAccountant;
+  bool get canManageUsers => isAdmin;
+  bool get canViewReports => isAdmin || isManager || isAccountant;
+  bool get canManageWallet => isAdmin || isAccountant;
+  bool get canSubmitExpenses => isSupervisor;
+  bool get canManageLabourCosts => isAdmin || isManager || isSupervisor || isAccountant;
+  bool get canEditLabourCosts => isAdmin || isManager || isAccountant;
+  bool get canAccessInvoiceTracking => isAdmin || isManager || isAccountant;
+
   String get roleDisplayName {
     switch (role) {
       case 'admin':

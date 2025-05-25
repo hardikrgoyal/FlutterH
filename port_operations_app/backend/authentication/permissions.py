@@ -64,4 +64,38 @@ class CanManageWallets(BaseRolePermission):
     """
     Permission for users who can manage wallets
     """
-    allowed_roles = ['accountant', 'admin'] 
+    allowed_roles = ['accountant', 'admin']
+
+class CanAccessLabourCosts(permissions.BasePermission):
+    """
+    Custom permission for labour costs:
+    - Supervisors: Can create and view only
+    - Managers/Admins: Full access (create, view, edit, delete)
+    - Accountants: Can view and edit (for invoice tracking)
+    """
+    
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Allow access for supervisor, manager, admin, and accountant
+        allowed_roles = ['supervisor', 'manager', 'admin', 'accountant']
+        return request.user.role in allowed_roles
+    
+    def has_object_permission(self, request, view, obj):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Supervisors can only view (GET) - no edit/delete
+        if request.user.role == 'supervisor':
+            return request.method in ['GET']
+        
+        # Managers and Admins have full access
+        if request.user.role in ['manager', 'admin']:
+            return True
+        
+        # Accountants can view and edit (for invoice tracking)
+        if request.user.role == 'accountant':
+            return request.method in ['GET', 'PUT', 'PATCH']
+        
+        return False 

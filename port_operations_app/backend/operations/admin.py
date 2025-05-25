@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import (
     CargoOperation, RateMaster, Equipment, TransportDetail, 
     LabourCost, MiscellaneousCost, RevenueStream,
-    VehicleType, WorkType, PartyMaster
+    VehicleType, WorkType, PartyMaster, ContractorMaster
 )
 
 @admin.register(CargoOperation)
@@ -29,10 +29,10 @@ class WorkTypeAdmin(admin.ModelAdmin):
 
 @admin.register(PartyMaster)
 class PartyMasterAdmin(admin.ModelAdmin):
-    list_display = ['name', 'contact_person', 'phone_number', 'is_active', 'created_by', 'created_at']
+    list_display = ['name', 'contact_person', 'phone_number', 'is_active', 'created_at']
     list_filter = ['is_active', 'created_at']
     search_fields = ['name', 'contact_person', 'phone_number']
-    readonly_fields = ['created_at']
+    readonly_fields = ['created_by', 'created_at']
 
 @admin.register(Equipment)
 class EquipmentAdmin(admin.ModelAdmin):
@@ -58,11 +58,18 @@ class TransportDetailAdmin(admin.ModelAdmin):
     readonly_fields = ['cost', 'created_at', 'updated_at']
     date_hierarchy = 'date'
 
+@admin.register(ContractorMaster)
+class ContractorMasterAdmin(admin.ModelAdmin):
+    list_display = ['name', 'is_active', 'created_at']
+    list_filter = ['is_active', 'created_at']
+    search_fields = ['name']
+    readonly_fields = ['created_by', 'created_at']
+
 @admin.register(LabourCost)
 class LabourCostAdmin(admin.ModelAdmin):
-    list_display = ['contractor_name', 'labour_type', 'work_type', 'operation', 'date', 'amount']
-    list_filter = ['labour_type', 'work_type', 'date']
-    search_fields = ['contractor_name', 'operation__operation_name']
+    list_display = ['contractor', 'labour_type', 'work_type', 'operation', 'date', 'amount', 'invoice_received', 'invoice_number']
+    list_filter = ['labour_type', 'work_type', 'date', 'invoice_received', 'contractor']
+    search_fields = ['contractor__name', 'operation__operation_name', 'invoice_number']
     readonly_fields = ['amount', 'created_at', 'updated_at']
     date_hierarchy = 'date'
 

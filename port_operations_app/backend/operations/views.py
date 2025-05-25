@@ -9,16 +9,17 @@ from datetime import datetime, timedelta
 from .models import (
     CargoOperation, RateMaster, Equipment, TransportDetail, 
     LabourCost, MiscellaneousCost, RevenueStream,
-    VehicleType, WorkType, PartyMaster
+    VehicleType, WorkType, PartyMaster, ContractorMaster
 )
 from .serializers import (
     CargoOperationSerializer, RateMasterSerializer, EquipmentSerializer,
     TransportDetailSerializer, LabourCostSerializer, MiscellaneousCostSerializer,
-    RevenueStreamSerializer, VehicleTypeSerializer, WorkTypeSerializer, PartyMasterSerializer
+    RevenueStreamSerializer, VehicleTypeSerializer, WorkTypeSerializer, 
+    PartyMasterSerializer, ContractorMasterSerializer
 )
 from authentication.permissions import (
     CanCreateOperations, CanManageEquipment, IsManagerOrAdmin,
-    IsSupervisorOrAbove, IsAccountantOrAdmin
+    IsSupervisorOrAbove, IsAccountantOrAdmin, CanAccessLabourCosts
 )
 
 class CargoOperationViewSet(viewsets.ModelViewSet):
@@ -65,6 +66,7 @@ class VehicleTypeViewSet(viewsets.ModelViewSet):
     queryset = VehicleType.objects.filter(is_active=True)
     serializer_class = VehicleTypeSerializer
     permission_classes = [IsSupervisorOrAbove]
+    pagination_class = None  # Disable pagination for master data
     
     def get_permissions(self):
         """
@@ -83,6 +85,7 @@ class WorkTypeViewSet(viewsets.ModelViewSet):
     queryset = WorkType.objects.filter(is_active=True)
     serializer_class = WorkTypeSerializer
     permission_classes = [IsSupervisorOrAbove]
+    pagination_class = None  # Disable pagination for master data
     
     def get_permissions(self):
         """
@@ -101,10 +104,30 @@ class PartyMasterViewSet(viewsets.ModelViewSet):
     queryset = PartyMaster.objects.filter(is_active=True)
     serializer_class = PartyMasterSerializer
     permission_classes = [IsSupervisorOrAbove]
+    pagination_class = None  # Disable pagination for master data
     
     def get_permissions(self):
         """
         Only managers and admins can create/update/delete parties
+        """
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes = [IsManagerOrAdmin]
+        else:
+            permission_classes = [IsSupervisorOrAbove]
+        return [permission() for permission in permission_classes]
+
+class ContractorMasterViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing contractor master data
+    """
+    queryset = ContractorMaster.objects.filter(is_active=True)
+    serializer_class = ContractorMasterSerializer
+    permission_classes = [IsSupervisorOrAbove]
+    pagination_class = None  # Disable pagination for master data
+    
+    def get_permissions(self):
+        """
+        Only managers and admins can create/update/delete contractors
         """
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             permission_classes = [IsManagerOrAdmin]
@@ -237,7 +260,14 @@ class LabourCostViewSet(viewsets.ModelViewSet):
     """
     queryset = LabourCost.objects.all()
     serializer_class = LabourCostSerializer
-    permission_classes = [IsManagerOrAdmin]
+    permission_classes = [CanAccessLabourCosts]
+    
+    def get_permissions(self):
+        """
+        Instantiate and return the list of permissions required for this view.
+        """
+        permission_classes = [CanAccessLabourCosts]
+        return [permission() for permission in permission_classes]
     
     def get_queryset(self):
         queryset = LabourCost.objects.all()
@@ -250,6 +280,60 @@ class LabourCostViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(labour_type=labour_type)
             
         return queryset
+    
+    def create(self, request, *args, **kwargs):
+        """
+        Custom create method to handle supervisor restrictions
+        """
+        # Supervisors can create but without invoice tracking fields
+        if request.user.role == 'supervisor':
+            # Remove invoice tracking fields from supervisor requests
+            data = request.data.copy()
+            data.pop('invoice_number', None)
+            data.pop('invoice_received', None)
+            data.pop('invoice_date', None)
+            request._full_data = data
+        
+        return super().create(request, *args, **kwargs)
+    
+    def update(self, request, *args, **kwargs):
+        """
+        Custom update method to handle supervisor restrictions
+        """
+        # Supervisors cannot edit
+        if request.user.role == 'supervisor':
+            return Response(
+                {'error': 'Supervisors do not have edit permissions'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        return super().update(request, *args, **kwargs)
+    
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Custom partial update method to handle supervisor restrictions
+        """
+        # Supervisors cannot edit
+        if request.user.role == 'supervisor':
+            return Response(
+                {'error': 'Supervisors do not have edit permissions'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        return super().partial_update(request, *args, **kwargs)
+    
+    def destroy(self, request, *args, **kwargs):
+        """
+        Custom destroy method to handle supervisor restrictions
+        """
+        # Supervisors cannot delete
+        if request.user.role == 'supervisor':
+            return Response(
+                {'error': 'Supervisors do not have delete permissions'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        return super().destroy(request, *args, **kwargs)
 
 class MiscellaneousCostViewSet(viewsets.ModelViewSet):
     """
