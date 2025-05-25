@@ -101,9 +101,11 @@ class ApiService {
   }
 
   Future<void> clearTokens() async {
+    _logger.d('🔓 ApiService: Clearing all tokens and user data');
     await _storage.delete(key: AppConstants.accessTokenKey);
     await _storage.delete(key: AppConstants.refreshTokenKey);
     await _storage.delete(key: AppConstants.userDataKey);
+    _logger.d('🔓 ApiService: All tokens and user data cleared');
   }
 
   Future<String?> getAccessToken() async {

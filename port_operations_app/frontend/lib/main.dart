@@ -24,6 +24,9 @@ void main() {
   );
 }
 
+// Global key for restarting the app
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 class PortOperationsApp extends ConsumerWidget {
   const PortOperationsApp({super.key});
 
@@ -46,22 +49,36 @@ class PortOperationsApp extends ConsumerWidget {
         final authState = ref.read(authStateProvider);
         final isLoggedIn = authState.isLoggedIn;
         final isLoading = authState.isLoading;
+        final user = authState.user;
+
+        print('🛣️ Router redirect: path=${state.matchedLocation}, isLoggedIn=$isLoggedIn, isLoading=$isLoading, user=${user?.username ?? 'null'}');
 
         // If still loading, don't redirect
-        if (isLoading) return null;
+        if (isLoading) {
+          print('🛣️ Router redirect: Still loading, no redirect');
+          return null;
+        }
 
         // If going to login page
         if (state.matchedLocation == '/login') {
           // If already logged in, redirect to dashboard
-          if (isLoggedIn) return '/dashboard';
+          if (isLoggedIn && user != null) {
+            print('🛣️ Router redirect: Already logged in, redirecting to dashboard');
+            return '/dashboard';
+          }
           // Otherwise stay on login page
+          print('🛣️ Router redirect: Not logged in, staying on login page');
           return null;
         }
 
         // For all other pages, check if logged in
-        if (!isLoggedIn) return '/login';
+        if (!isLoggedIn || user == null) {
+          print('🛣️ Router redirect: Not logged in or no user, redirecting to login');
+          return '/login';
+        }
 
         // No redirect needed
+        print('🛣️ Router redirect: Authenticated user accessing ${state.matchedLocation}, no redirect needed');
         return null;
       },
       refreshListenable: _RouterRefreshNotifier(ref),
@@ -231,9 +248,22 @@ class PortOperationsApp extends ConsumerWidget {
 class _RouterRefreshNotifier extends ChangeNotifier {
   _RouterRefreshNotifier(this._ref) {
     _ref.listen<AuthState>(authStateProvider, (previous, next) {
-      // Notify router when auth state changes
-      if (previous?.isLoggedIn != next.isLoggedIn) {
+      final prevLoggedIn = previous?.isLoggedIn ?? false;
+      final nextLoggedIn = next.isLoggedIn;
+      final prevUser = previous?.user?.username ?? 'null';
+      final nextUser = next.user?.username ?? 'null';
+      
+      print('🔄 Router refresh: Auth state changed:');
+      print('   isLoggedIn: $prevLoggedIn -> $nextLoggedIn');
+      print('   user: $prevUser -> $nextUser');
+      print('   isLoading: ${previous?.isLoading ?? false} -> ${next.isLoading}');
+      
+      // Notify router when auth state changes significantly
+      if (prevLoggedIn != nextLoggedIn || prevUser != nextUser) {
+        print('🔄 Router refresh: Significant change detected, notifying listeners');
         notifyListeners();
+      } else {
+        print('🔄 Router refresh: No significant change, not notifying');
       }
     });
   }

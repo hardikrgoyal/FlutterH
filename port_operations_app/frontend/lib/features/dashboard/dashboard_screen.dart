@@ -24,6 +24,8 @@ class DashboardScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('${user.roleDisplayName} Dashboard'),
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

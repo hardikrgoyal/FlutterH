@@ -37,9 +37,12 @@ class AuthService {
   }
 
   Future<void> logout() async {
+    print('🔓 AuthService: Clearing tokens...');
     // Clear all stored data
     await _apiService.clearTokens();
+    print('🔓 AuthService: Tokens cleared');
     await _storage.delete(key: AppConstants.userDataKey);
+    print('🔓 AuthService: User data cleared');
   }
 
   Future<User?> getCurrentUser() async {
@@ -110,7 +113,8 @@ final authServiceProvider = Provider<AuthService>((ref) {
 // Auth state provider
 final authStateProvider = StateNotifierProvider<AuthStateNotifier, AuthState>((ref) {
   final authService = ref.read(authServiceProvider);
-  return AuthStateNotifier(authService);
+  final storage = ref.read(storageProvider);
+  return AuthStateNotifier(authService, storage);
 });
 
 // Auth state classes
@@ -144,8 +148,9 @@ class AuthState {
 
 class AuthStateNotifier extends StateNotifier<AuthState> {
   final AuthService _authService;
+  final FlutterSecureStorage _storage;
 
-  AuthStateNotifier(this._authService) : super(AuthState()) {
+  AuthStateNotifier(this._authService, this._storage) : super(AuthState()) {
     _checkAuthStatus();
   }
 
@@ -197,7 +202,10 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
 
   Future<void> logout() async {
     try {
+      print('🔓 Starting logout process...');
       await _authService.logout();
+      print('🔓 Auth service logout completed');
+      
       // Reset state to initial state
       state = AuthState(
         user: null,
@@ -205,7 +213,13 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
         isLoggedIn: false,
         error: null,
       );
+      print('🔓 Auth state reset completed');
+      
+      // Force a recheck of auth status to ensure everything is cleared
+      await _checkAuthStatus();
+      print('🔓 Auth status recheck completed');
     } catch (e) {
+      print('🔓 Logout error: $e');
       // Even if logout fails, reset the state
       state = AuthState(
         user: null,
@@ -216,6 +230,11 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  Future<void> forceRefreshAuthState() async {
+    print('🔓 Force refreshing auth state...');
+    await _checkAuthStatus();
+  }
+
   Future<void> updateProfile(Map<String, dynamic> profileData) async {
     try {
       final updatedUser = await _authService.updateProfile(profileData);
@@ -223,6 +242,45 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       state = state.copyWith(error: e.toString());
       rethrow;
+    }
+  }
+
+  Future<void> forceLogout() async {
+    print('🔓 Force logout - clearing all data immediately');
+    
+    try {
+      // Step 1: Clear API service tokens (this uses specific key deletion)
+      print('🔓 Step 1: Clearing API service tokens...');
+      await _authService.logout();
+      print('🔓 Step 1: API service tokens cleared');
+      
+      // Step 2: Clear any remaining storage (safety net)
+      print('🔓 Step 2: Clearing remaining secure storage...');
+      await _storage.deleteAll();
+      print('🔓 Step 2: Secure storage cleared');
+      
+      // Step 3: Reset state immediately
+      print('🔓 Step 3: Resetting auth state...');
+      final newState = AuthState(
+        user: null,
+        isLoading: false,
+        isLoggedIn: false,
+        error: null,
+      );
+      state = newState;
+      print('🔓 Step 3: Auth state reset - isLoggedIn: ${state.isLoggedIn}, user: ${state.user}');
+      
+      print('🔓 Force logout completed successfully - Final state: isLoggedIn=${state.isLoggedIn}');
+    } catch (e) {
+      print('🔓 Force logout error: $e');
+      // Still reset state even if clearing fails
+      state = AuthState(
+        user: null,
+        isLoading: false,
+        isLoggedIn: false,
+        error: null,
+      );
+      print('🔓 Force logout completed with error, but state reset - isLoggedIn: ${state.isLoggedIn}');
     }
   }
 

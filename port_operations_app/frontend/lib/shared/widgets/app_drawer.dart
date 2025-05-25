@@ -156,7 +156,8 @@ class AppDrawer extends ConsumerWidget {
           title: const Text('Logout'),
           textColor: AppColors.error,
           onTap: () async {
-            Navigator.pop(context);
+            print('🔓 Drawer logout button pressed');
+            // Don't close drawer here - keep context alive
             await _showLogoutConfirmation(context, ref);
           },
         ),
@@ -405,6 +406,8 @@ class AppDrawer extends ConsumerWidget {
   }
 
   Future<void> _showLogoutConfirmation(BuildContext context, WidgetRef ref) async {
+    print('🔓 Logout confirmation dialog called');
+    
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -412,27 +415,55 @@ class AppDrawer extends ConsumerWidget {
         content: const Text('Are you sure you want to logout?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
+            onPressed: () {
+              print('🔓 Logout cancelled');
+              Navigator.pop(dialogContext, false);
+            },
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
+            onPressed: () {
+              print('🔓 Logout confirmed');
+              Navigator.pop(dialogContext, true);
+            },
             child: const Text('Logout'),
           ),
         ],
       ),
     );
 
-    if (confirmed == true && context.mounted) {
+    print('🔓 Dialog closed, confirmed: $confirmed');
+
+    if (confirmed == true) {
+      // Close the drawer first
+      if (context.mounted) {
+        Navigator.pop(context);
+        print('🔓 Drawer closed');
+      }
+      
+      // Perform logout using the EXACT same method as the working test button
+      print('🔓 DRAWER LOGOUT - Starting logout process (same as test button)');
       try {
-        await ref.read(authStateProvider.notifier).logout();
+        await ref.read(authStateProvider.notifier).forceLogout();
+        print('🔓 DRAWER LOGOUT - Logout completed, navigating to login');
         if (context.mounted) {
           context.go('/login');
+          print('🔓 DRAWER LOGOUT - Navigation completed');
         }
       } catch (e) {
-        // Handle any logout errors
-        print('Logout error: $e');
+        print('🔓 DRAWER LOGOUT - Error: $e');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Logout failed: ${e.toString()}'),
+              backgroundColor: AppColors.error,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
       }
+    } else {
+      print('🔓 Logout was cancelled or dialog dismissed');
     }
   }
 } 
