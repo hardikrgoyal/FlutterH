@@ -12,6 +12,7 @@ import '../labour_service.dart';
 import '../../operations/operations_service.dart';
 import '../../contractors/contractor_service.dart';
 import '../../auth/auth_service.dart';
+import '../../rate_master/rate_master_service.dart';
 
 class LabourCostFormScreen extends ConsumerStatefulWidget {
   final int? labourCostId;
@@ -49,9 +50,11 @@ class _LabourCostFormScreenState extends ConsumerState<LabourCostFormScreen>
   DateTime? _selectedInvoiceDate;
   int? _selectedOperation;
   int? _selectedContractor;
-  String _selectedLabourType = 'casual';
-  String _selectedWorkType = 'loading';
-  bool _invoiceReceived = false; // Default to Pending
+  String? _selectedLabourType;
+  String? _selectedWorkType;
+  String? _selectedShift;
+  bool? _invoiceReceived;
+  DateTime? _invoiceDate;
 
   @override
   void initState() {
@@ -126,7 +129,7 @@ class _LabourCostFormScreenState extends ConsumerState<LabourCostFormScreen>
     if (_existingLabourCost != null) {
       _contractorNameController.text = _existingLabourCost!.contractorName ?? '';
       _labourCountController.text = _existingLabourCost!.labourCountTonnage.toString();
-      _rateController.text = _existingLabourCost!.rate.toString();
+      _rateController.text = (_existingLabourCost!.rate ?? 0.0).toString();
       _remarksController.text = _existingLabourCost!.remarks ?? '';
       _invoiceNumberController.text = _existingLabourCost!.invoiceNumber ?? '';
       
@@ -136,7 +139,9 @@ class _LabourCostFormScreenState extends ConsumerState<LabourCostFormScreen>
       _selectedContractor = _existingLabourCost!.contractor;
       _selectedLabourType = _existingLabourCost!.labourType;
       _selectedWorkType = _existingLabourCost!.workType;
-      _invoiceReceived = _existingLabourCost!.invoiceReceived ?? false; // Default to false if null
+      _selectedShift = _existingLabourCost!.shift;
+      _invoiceReceived = _existingLabourCost!.invoiceReceived ?? false;
+      _invoiceDate = _existingLabourCost!.invoiceDate;
       
       _calculateAmount();
     }
@@ -260,11 +265,7 @@ class _LabourCostFormScreenState extends ConsumerState<LabourCostFormScreen>
                               value: c.id,
                               child: Text(c.name),
                             )).toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedContractor = value;
-                              });
-                            },
+                            onChanged: _onContractorChanged,
                             icon: Icons.person,
                             validator: (value) {
                               if (value == null) {
@@ -294,14 +295,29 @@ class _LabourCostFormScreenState extends ConsumerState<LabourCostFormScreen>
                         value: choice['value'],
                         child: Text(choice['label']!),
                       )).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedLabourType = value!;
-                        });
-                      },
+                      onChanged: _onLabourTypeChanged,
                       icon: Icons.group,
                     ),
                     const SizedBox(height: 16),
+
+                    // Shift field - only for casual labour
+                    if (_selectedLabourType == 'casual') ...[
+                      _buildDropdownField(
+                        label: 'Shift',
+                        value: _selectedShift,
+                        items: LabourCost.shiftChoices.map((choice) => DropdownMenuItem(
+                          value: choice['value'],
+                          child: Text(choice['label']!),
+                        )).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedShift = value;
+                          });
+                        },
+                        icon: Icons.schedule,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
 
                     _buildDropdownField(
                       label: 'Work Type',
@@ -317,21 +333,26 @@ class _LabourCostFormScreenState extends ConsumerState<LabourCostFormScreen>
                       },
                       icon: Icons.work,
                     ),
-                    const SizedBox(height: 24),
-
-                    // Cost Details Section
-                    _buildSectionHeader('Cost Details', Icons.currency_rupee),
                     const SizedBox(height: 16),
 
+                    // Quantity field - accessible to all users
                     _buildTextField(
                       controller: _labourCountController,
-                      label: 'Labour Count/Tonnage',
-                      hint: 'e.g., 10 or 25.5',
+                      label: _selectedLabourType == 'casual' 
+                          ? 'Number of Workers'
+                          : _selectedLabourType == 'tonnes'
+                              ? 'Tonnage'
+                              : 'Quantity',
+                      hint: _selectedLabourType == 'casual' 
+                          ? 'e.g., 10'
+                          : _selectedLabourType == 'tonnes'
+                              ? 'e.g., 25.5'
+                              : 'e.g., 1',
                       icon: Icons.numbers,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
-                          return 'Labour count/tonnage is required';
+                          return 'This field is required';
                         }
                         if (double.tryParse(value) == null) {
                           return 'Please enter a valid number';
@@ -343,73 +364,79 @@ class _LabourCostFormScreenState extends ConsumerState<LabourCostFormScreen>
                       },
                       onChanged: (value) => _calculateAmount(),
                     ),
-                    const SizedBox(height: 16),
-
-                    _buildTextField(
-                      controller: _rateController,
-                      label: 'Rate (₹)',
-                      hint: 'e.g., 500.00',
-                      icon: Icons.currency_rupee,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Rate is required';
-                        }
-                        if (double.tryParse(value) == null) {
-                          return 'Please enter a valid number';
-                        }
-                        if (double.parse(value) <= 0) {
-                          return 'Rate must be greater than 0';
-                        }
-                        return null;
-                      },
-                      onChanged: (value) => _calculateAmount(),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Calculated Amount Display
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.success.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.success.withOpacity(0.3)),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.calculate,
-                            color: AppColors.success,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Calculated Total Amount',
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: AppColors.success,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '₹${NumberFormat('#,##0.00').format(_calculatedAmount)}',
-                                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                    color: AppColors.success,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                     const SizedBox(height: 24),
+
+                    // Cost Details Section - Only for managers and admins when editing
+                    if (user.canAccessCostDetails && widget.labourCostId != null) ...[
+                      _buildSectionHeader('Cost Details', Icons.currency_rupee),
+                      const SizedBox(height: 16),
+
+                      _buildTextField(
+                        controller: _rateController,
+                        label: 'Rate (₹)',
+                        hint: 'e.g., 500.00',
+                        icon: Icons.currency_rupee,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Rate is required';
+                          }
+                          if (double.tryParse(value) == null) {
+                            return 'Please enter a valid number';
+                          }
+                          if (double.parse(value) <= 0) {
+                            return 'Rate must be greater than 0';
+                          }
+                          return null;
+                        },
+                        onChanged: (value) => _calculateAmount(),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Calculated Amount Display
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.success.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.success.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.calculate,
+                              color: AppColors.success,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Calculated Total Amount',
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      color: AppColors.success,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '₹${NumberFormat('#,##0.00').format(_calculatedAmount)}',
+                                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                      color: AppColors.success,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
 
                     // Additional Information Section
                     _buildSectionHeader('Additional Information', Icons.note),
@@ -424,8 +451,8 @@ class _LabourCostFormScreenState extends ConsumerState<LabourCostFormScreen>
                     ),
                     const SizedBox(height: 24),
 
-                    // Invoice Tracking Section - Only for users with invoice tracking access
-                    if (user.canAccessInvoiceTracking) ...[
+                    // Invoice Tracking Section - Only for users with invoice tracking access when editing
+                    if (user.canAccessInvoiceTracking && widget.labourCostId != null) ...[
                       _buildSectionHeader('Invoice Tracking', Icons.receipt_long),
                       const SizedBox(height: 16),
 
@@ -664,28 +691,74 @@ class _LabourCostFormScreenState extends ConsumerState<LabourCostFormScreen>
       return;
     }
 
+    // Additional validation for shift when labour type is casual
+    if (_selectedLabourType == 'casual' && _selectedShift == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Shift is required for casual labour type'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    // Additional validation for rate when editing existing entries and user has cost access
+    final user = ref.read(authStateProvider).user;
+    if (user == null) return;
+    
+    if (widget.labourCostId != null && user.canAccessCostDetails && _rateController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Rate is required when editing'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
       final user = ref.read(authStateProvider).user;
       if (user == null) return;
       
+      // For new entries, fetch rate from Rate Master
+      double? finalRate;
+      if (widget.labourCostId == null) {
+        // New entry - fetch rate from Rate Master
+        try {
+          final rateMasterService = ref.read(rateMasterServiceProvider);
+          finalRate = await rateMasterService.getRate(_selectedContractor!, _selectedLabourType!);
+        } catch (e) {
+          // If rate not found in master, set to null
+          finalRate = null;
+        }
+      } else {
+        // Editing existing entry - use rate from form if user has access
+        if (user.canAccessCostDetails && _rateController.text.trim().isNotEmpty) {
+          finalRate = double.parse(_rateController.text);
+        } else {
+          finalRate = _existingLabourCost?.rate;
+        }
+      }
+      
       final labourCost = LabourCost(
         id: _existingLabourCost?.id,
         operation: _selectedOperation!,
         date: _selectedDate,
         contractor: _selectedContractor!,
-        labourType: _selectedLabourType,
-        workType: _selectedWorkType,
+        labourType: _selectedLabourType!,
+        workType: _selectedWorkType!,
+        shift: _selectedShift,
         labourCountTonnage: double.parse(_labourCountController.text),
-        rate: double.parse(_rateController.text),
+        rate: finalRate,
         remarks: _remarksController.text.trim().isEmpty ? null : _remarksController.text.trim(),
-        // Only include invoice tracking fields for users with access
-        invoiceNumber: user.canAccessInvoiceTracking 
+        // Only include invoice tracking fields for users with access when editing
+        invoiceNumber: (user.canAccessInvoiceTracking && widget.labourCostId != null)
             ? (_invoiceNumberController.text.trim().isEmpty ? null : _invoiceNumberController.text.trim())
             : null,
-        invoiceReceived: user.canAccessInvoiceTracking ? _invoiceReceived : null,
-        invoiceDate: user.canAccessInvoiceTracking ? _selectedInvoiceDate : null,
+        invoiceReceived: (user.canAccessInvoiceTracking && widget.labourCostId != null) ? _invoiceReceived : null,
+        invoiceDate: (user.canAccessInvoiceTracking && widget.labourCostId != null) ? _selectedInvoiceDate : null,
       );
 
       if (widget.labourCostId != null) {
@@ -752,7 +825,7 @@ class _LabourCostFormScreenState extends ConsumerState<LabourCostFormScreen>
   }
 
   Color _getInvoiceStatusColor() {
-    if (_invoiceReceived) {
+    if (_invoiceReceived == true) {
       return AppColors.success;
     } else {
       return AppColors.warning;
@@ -760,7 +833,7 @@ class _LabourCostFormScreenState extends ConsumerState<LabourCostFormScreen>
   }
 
   IconData _getInvoiceStatusIcon() {
-    if (_invoiceReceived) {
+    if (_invoiceReceived == true) {
       return Icons.check_circle;
     } else {
       return Icons.pending;
@@ -768,7 +841,7 @@ class _LabourCostFormScreenState extends ConsumerState<LabourCostFormScreen>
   }
 
   String _getInvoiceStatusText() {
-    if (_invoiceReceived) {
+    if (_invoiceReceived == true) {
       return 'Received';
     } else {
       return 'Pending';
@@ -942,6 +1015,57 @@ class _LabourCostFormScreenState extends ConsumerState<LabourCostFormScreen>
           ),
         );
       }
+    }
+  }
+
+  Future<void> _onLabourTypeChanged(String? labourType) async {
+    setState(() {
+      _selectedLabourType = labourType;
+      _selectedShift = null; // Reset shift when labour type changes
+    });
+    
+    // Auto-fetch rate if contractor and labour type are selected
+    if (_selectedContractor != null && labourType != null) {
+      await _fetchRate();
+    }
+    
+    // For fixed labour type, set labour count to 1
+    if (labourType == 'fixed') {
+      _labourCountController.text = '1';
+    }
+  }
+
+  Future<void> _onContractorChanged(int? contractorId) async {
+    setState(() {
+      _selectedContractor = contractorId;
+    });
+    
+    // Auto-fetch rate if contractor and labour type are selected
+    if (contractorId != null && _selectedLabourType != null) {
+      await _fetchRate();
+    }
+  }
+
+  Future<void> _fetchRate() async {
+    if (_selectedContractor == null || _selectedLabourType == null) return;
+    
+    // Only fetch rate for users with cost access when editing existing entries
+    final user = ref.read(authStateProvider).user;
+    if (user == null || !user.canAccessCostDetails || widget.labourCostId == null) return;
+    
+    try {
+      final rateMasterService = ref.read(rateMasterServiceProvider);
+      final rate = await rateMasterService.getRate(_selectedContractor!, _selectedLabourType!);
+      
+      if (rate != null) {
+        setState(() {
+          _rateController.text = rate.toString();
+        });
+        _calculateAmount();
+      }
+    } catch (e) {
+      // If rate not found, user will need to enter manually
+      print('Rate not found for contractor $_selectedContractor and labour type $_selectedLabourType');
     }
   }
 } 

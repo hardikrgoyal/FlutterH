@@ -283,6 +283,8 @@ class _LabourCostDetailScreenState extends ConsumerState<LabourCostDetailScreen>
   }
 
   Widget _buildCostBreakdownCard() {
+    final user = ref.read(authStateProvider).user!;
+    
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -319,41 +321,43 @@ class _LabourCostDetailScreenState extends ConsumerState<LabourCostDetailScreen>
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Rate per unit:',
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                      Text(
-                        '₹${NumberFormat('#,##0.00').format(_labourCost!.rate)}',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
+                  if (user.canAccessCostDetails) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Rate per unit:',
+                          style: Theme.of(context).textTheme.bodyLarge,
                         ),
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Total Amount:',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
+                        Text(
+                          '₹${NumberFormat('#,##0.00').format(_labourCost!.rate ?? 0)}',
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                      Text(
-                        '₹${NumberFormat('#,##0.00').format(_labourCost!.amount ?? _labourCost!.calculatedAmount)}',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.success,
+                      ],
+                    ),
+                    const Divider(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Total Amount:',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                        Text(
+                          '₹${NumberFormat('#,##0.00').format(_labourCost!.amount ?? _labourCost!.calculatedAmount)}',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.success,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

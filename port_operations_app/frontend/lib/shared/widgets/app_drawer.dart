@@ -228,6 +228,15 @@ class AppDrawer extends ConsumerWidget {
             },
           },
           {
+            'title': 'Rate Master',
+            'icon': Icons.monetization_on,
+            'color': AppColors.accent,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/rates');
+            },
+          },
+          {
             'title': 'Financial',
             'icon': Icons.currency_rupee,
             'color': AppColors.success,

@@ -44,11 +44,10 @@ class EquipmentAdmin(admin.ModelAdmin):
 
 @admin.register(RateMaster)
 class RateMasterAdmin(admin.ModelAdmin):
-    list_display = ['party', 'category', 'sub_category', 'rate', 'unit', 'effective_date', 'is_active']
-    list_filter = ['category', 'is_active', 'effective_date']
-    search_fields = ['party', 'sub_category']
-    readonly_fields = ['created_at']
-    date_hierarchy = 'effective_date'
+    list_display = ['contractor', 'labour_type', 'rate', 'is_active', 'created_at']
+    list_filter = ['labour_type', 'is_active', 'created_at']
+    search_fields = ['contractor__name']
+    readonly_fields = ['created_by', 'created_at', 'updated_at']
 
 @admin.register(TransportDetail)
 class TransportDetailAdmin(admin.ModelAdmin):
@@ -67,8 +66,8 @@ class ContractorMasterAdmin(admin.ModelAdmin):
 
 @admin.register(LabourCost)
 class LabourCostAdmin(admin.ModelAdmin):
-    list_display = ['contractor', 'labour_type', 'work_type', 'operation', 'date', 'amount', 'invoice_received', 'invoice_number']
-    list_filter = ['labour_type', 'work_type', 'date', 'invoice_received', 'contractor']
+    list_display = ['contractor', 'labour_type', 'shift', 'work_type', 'operation', 'date', 'amount', 'invoice_received', 'invoice_number']
+    list_filter = ['labour_type', 'shift', 'work_type', 'date', 'invoice_received', 'contractor']
     search_fields = ['contractor__name', 'operation__operation_name', 'invoice_number']
     readonly_fields = ['amount', 'created_at', 'updated_at']
     date_hierarchy = 'date'

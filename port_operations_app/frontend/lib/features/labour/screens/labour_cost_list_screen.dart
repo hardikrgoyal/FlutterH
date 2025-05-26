@@ -74,7 +74,7 @@ class _LabourCostListScreenState extends ConsumerState<LabourCostListScreen> {
         labourCost.workTypeDisplay.toLowerCase().contains(query) ||
         (labourCost.operationName?.toLowerCase().contains(query) == true) ||
         (labourCost.invoiceNumber?.toLowerCase().contains(query) == true) ||
-        labourCost.amount.toString().contains(query);
+        (labourCost.amount?.toString().contains(query) == true);
   }
 
   @override
@@ -407,13 +407,14 @@ class _LabourCostListScreenState extends ConsumerState<LabourCostListScreen> {
                     ),
                   ),
                   const Spacer(),
-                  Text(
-                    '₹${NumberFormat('#,##0.00').format(labourCost.amount ?? labourCost.calculatedAmount)}',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.success,
+                  if (user.canAccessCostDetails)
+                    Text(
+                      '₹${NumberFormat('#,##0.00').format(labourCost.amount ?? labourCost.calculatedAmount)}',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.success,
+                      ),
                     ),
-                  ),
                 ],
               ),
               const SizedBox(height: 8),
@@ -426,14 +427,16 @@ class _LabourCostListScreenState extends ConsumerState<LabourCostListScreen> {
                       Icons.group,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildInfoChip(
-                      'Rate',
-                      '₹${NumberFormat('#,##0.00').format(labourCost.rate)}',
-                      Icons.currency_rupee,
+                  if (user.canAccessCostDetails) ...[
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildInfoChip(
+                        'Rate',
+                        '₹${NumberFormat('#,##0.00').format(labourCost.rate ?? 0)}',
+                        Icons.currency_rupee,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
               if (labourCost.remarks?.isNotEmpty == true) ...[

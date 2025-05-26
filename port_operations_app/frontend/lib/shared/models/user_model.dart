@@ -58,6 +58,7 @@ class User {
   bool get canManageLabourCosts => isAdmin || isManager || isSupervisor || isAccountant;
   bool get canEditLabourCosts => isAdmin || isManager || isAccountant;
   bool get canAccessInvoiceTracking => isAdmin || isManager || isAccountant;
+  bool get canAccessCostDetails => isAdmin || isManager;
 
   String get roleDisplayName {
     switch (role) {

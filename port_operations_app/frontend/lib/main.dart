@@ -15,6 +15,7 @@ import 'features/users/users_screen.dart';
 import 'features/labour/screens/labour_cost_list_screen.dart';
 import 'features/labour/screens/labour_cost_form_screen.dart';
 import 'features/labour/screens/labour_cost_detail_screen.dart';
+import 'features/rate_master/screens/rate_master_list_screen.dart';
 import 'features/auth/auth_service.dart';
 import 'core/constants/app_theme.dart';
 import 'core/constants/app_constants.dart';
@@ -180,7 +181,7 @@ class PortOperationsApp extends ConsumerWidget {
         GoRoute(
           path: '/rates',
           name: 'rates',
-          builder: (context, state) => const _PlaceholderScreen(title: 'Rate Master'),
+          builder: (context, state) => const RateMasterListScreen(),
         ),
         GoRoute(
           path: '/revenue',

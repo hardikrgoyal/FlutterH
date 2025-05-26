@@ -82,12 +82,17 @@ class EquipmentSerializer(serializers.ModelSerializer):
 
 class RateMasterSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    contractor_name = serializers.CharField(source='contractor.name', read_only=True)
+    labour_type_display = serializers.CharField(source='get_labour_type_display', read_only=True)
     
     class Meta:
         model = RateMaster
-        fields = '__all__'
-        read_only_fields = ['created_by', 'created_at']
-    
+        fields = [
+            'id', 'contractor', 'contractor_name', 'labour_type', 'labour_type_display',
+            'rate', 'is_active', 'created_by', 'created_by_name', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_by', 'created_at', 'updated_at']
+
     def create(self, validated_data):
         validated_data['created_by'] = self.context['request'].user
         return super().create(validated_data)
@@ -106,19 +111,51 @@ class TransportDetailSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 class LabourCostSerializer(serializers.ModelSerializer):
-    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
-    operation_name = serializers.CharField(source='operation.operation_name', read_only=True)
     contractor_name = serializers.CharField(source='contractor.name', read_only=True)
     contractor_id = serializers.IntegerField(source='contractor.id', read_only=True)
-    
+    operation_name = serializers.CharField(source='operation.operation_name', read_only=True)
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    labour_type_display = serializers.CharField(source='get_labour_type_display', read_only=True)
+    work_type_display = serializers.CharField(source='get_work_type_display', read_only=True)
+    shift_display = serializers.CharField(source='get_shift_display', read_only=True)
+
     class Meta:
         model = LabourCost
-        fields = '__all__'
+        fields = [
+            'id', 'operation', 'operation_name', 'date', 'contractor', 'contractor_id', 'contractor_name',
+            'labour_type', 'labour_type_display', 'work_type', 'work_type_display', 'shift', 'shift_display',
+            'labour_count_tonnage', 'rate', 'amount', 'remarks',
+            'invoice_number', 'invoice_received', 'invoice_date',
+            'created_by', 'created_at', 'updated_at'
+        ]
         read_only_fields = ['created_by', 'created_at', 'updated_at', 'amount']
-    
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        
+        # Hide cost and invoice fields from supervisors
+        if request and hasattr(request, 'user') and request.user.is_authenticated:
+            user = request.user
+            if hasattr(user, 'role') and user.role == 'supervisor':
+                # Remove cost and invoice fields for supervisors
+                cost_fields = ['rate', 'amount', 'invoice_number', 'invoice_received', 'invoice_date']
+                for field in cost_fields:
+                    if field in self.fields:
+                        del self.fields[field]
+
     def create(self, validated_data):
         validated_data['created_by'] = self.context['request'].user
         return super().create(validated_data)
+
+    def validate(self, data):
+        # Validate shift requirement for casual labour
+        if data.get('labour_type') == 'casual' and not data.get('shift'):
+            raise serializers.ValidationError({'shift': 'Shift is required for casual labour type'})
+        elif data.get('labour_type') != 'casual' and data.get('shift'):
+            raise serializers.ValidationError({'shift': 'Shift should only be specified for casual labour type'})
+        
+        return data
 
 class MiscellaneousCostSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source='created_by.username', read_only=True)

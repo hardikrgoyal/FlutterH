@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator
 from decimal import Decimal
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 
 User = get_user_model()
 
@@ -158,30 +159,28 @@ class Equipment(models.Model):
 
 class RateMaster(models.Model):
     """
-    Rate master configuration for auto-calculating costs
+    Master data for contractor rates based on labour type
     """
-    CATEGORY_CHOICES = [
-        ('transport', 'Transport'),
-        ('equipment', 'Equipment'),
-        ('service', 'Service'),
-        ('labour', 'Labour'),
+    LABOUR_TYPE_CHOICES = [
+        ('casual', 'Casual'),
+        ('tonnes', 'Tonnes'),
+        ('fixed', 'Fixed'),
     ]
     
-    party = models.CharField(max_length=100)
-    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
-    sub_category = models.CharField(max_length=50)  # e.g., Hydra, Casual Labour, etc.
-    unit = models.CharField(max_length=20)  # e.g., Hour, MT, Trip, etc.
-    rate = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
-    effective_date = models.DateField()
+    contractor = models.ForeignKey(ContractorMaster, on_delete=models.CASCADE)
+    labour_type = models.CharField(max_length=20, choices=LABOUR_TYPE_CHOICES)
+    rate = models.DecimalField(max_digits=10, decimal_places=2)
     is_active = models.BooleanField(default=True)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
-    
-    def __str__(self):
-        return f"{self.party} - {self.sub_category} - {self.rate}/{self.unit}"
+    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        ordering = ['-effective_date']
+        unique_together = ['contractor', 'labour_type']
+        ordering = ['contractor__name', 'labour_type']
+    
+    def __str__(self):
+        return f"{self.contractor.name} - {self.get_labour_type_display()} - ₹{self.rate}"
 
 class TransportDetail(models.Model):
     """
@@ -222,53 +221,108 @@ class TransportDetail(models.Model):
 
 class LabourCost(models.Model):
     """
-    Labour cost tracking
+    Labour cost tracking for cargo operations
     """
     LABOUR_TYPE_CHOICES = [
         ('casual', 'Casual'),
-        ('skilled', 'Skilled'),
-        ('operator', 'Operator'),
-        ('supervisor', 'Supervisor'),
-        ('others', 'Others'),
+        ('tonnes', 'Tonnes'),
+        ('fixed', 'Fixed'),
     ]
     
     WORK_TYPE_CHOICES = [
         ('loading', 'Loading'),
         ('unloading', 'Unloading'),
         ('shifting', 'Shifting'),
-        ('lashing', 'Lashing'),
-        ('others', 'Others'),
+        ('sorting', 'Sorting'),
+        ('other', 'Other'),
     ]
     
-    operation = models.ForeignKey(CargoOperation, on_delete=models.CASCADE, related_name='labour_costs')
+    SHIFT_CHOICES = [
+        ('1st_shift', '1st Shift'),
+        ('2nd_shift', '2nd Shift'),
+        ('3rd_shift', '3rd Shift'),
+    ]
+
+    operation = models.ForeignKey(CargoOperation, on_delete=models.CASCADE)
     date = models.DateField()
     contractor = models.ForeignKey(ContractorMaster, on_delete=models.CASCADE)
     labour_type = models.CharField(max_length=20, choices=LABOUR_TYPE_CHOICES)
     work_type = models.CharField(max_length=20, choices=WORK_TYPE_CHOICES)
-    labour_count_tonnage = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
-    rate = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
-    amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    
+    # For casual labour - shift is required
+    shift = models.CharField(max_length=20, choices=SHIFT_CHOICES, null=True, blank=True)
+    
+    # For tonnes - quantity is required, for casual - number of workers, for fixed - always 1
+    labour_count_tonnage = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0.01)])
+    
+    # Rate and amount - only visible to managers and admins
+    rate = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], null=True, blank=True)
+    
     remarks = models.TextField(blank=True, null=True)
     
-    # Invoice tracking fields
-    invoice_number = models.CharField(max_length=100, blank=True, null=True)
-    invoice_received = models.BooleanField(default=False)  # Default to Pending
-    invoice_date = models.DateField(blank=True, null=True)
+    # Invoice tracking fields - only for managers and admins
+    invoice_number = models.CharField(max_length=50, blank=True, null=True)
+    invoice_received = models.BooleanField(null=True, blank=True)  # null=pending, True=received, False=not applicable
+    invoice_date = models.DateField(null=True, blank=True)
     
     created_by = models.ForeignKey(User, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def amount(self):
+        """Calculate total amount"""
+        if self.rate is not None:
+            return self.labour_count_tonnage * self.rate
+        return None
+
+    @property
+    def contractor_name(self):
+        """Get contractor name for API responses"""
+        return self.contractor.name if self.contractor else None
     
+    @property
+    def contractor_id(self):
+        """Get contractor ID for API responses"""
+        return self.contractor.id if self.contractor else None
+    
+    @property
+    def operation_name(self):
+        """Get operation name for API responses"""
+        return self.operation.operation_name if self.operation else None
+
+    def clean(self):
+        """Validate labour type specific fields"""
+        if self.labour_type == 'casual' and not self.shift:
+            raise ValidationError({'shift': 'Shift is required for casual labour'})
+        elif self.labour_type != 'casual' and self.shift:
+            raise ValidationError({'shift': 'Shift should only be specified for casual labour'})
+
     def save(self, *args, **kwargs):
-        # Auto-calculate amount
-        self.amount = self.labour_count_tonnage * self.rate
+        # For fixed labour type, always set labour_count_tonnage to 1
+        if self.labour_type == 'fixed':
+            self.labour_count_tonnage = 1
+        
+        # Auto-populate rate from RateMaster if not provided
+        if not self.rate:
+            try:
+                rate_master = RateMaster.objects.get(
+                    contractor=self.contractor,
+                    labour_type=self.labour_type,
+                    is_active=True
+                )
+                self.rate = rate_master.rate
+            except RateMaster.DoesNotExist:
+                pass  # Rate will need to be provided manually
+        
+        self.full_clean()
         super().save(*args, **kwargs)
-    
+
     def __str__(self):
-        return f"{self.contractor.name} - {self.labour_type} ({self.operation.operation_name})"
-    
+        return f"{self.contractor.name} - {self.operation.operation_name} - {self.date}"
+
     class Meta:
-        ordering = ['-date']
+        ordering = ['-date', '-created_at']
 
 class MiscellaneousCost(models.Model):
     """

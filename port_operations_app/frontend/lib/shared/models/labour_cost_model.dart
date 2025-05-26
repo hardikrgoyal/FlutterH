@@ -13,10 +13,11 @@ class LabourCost {
   final String labourType;
   @JsonKey(name: 'work_type')
   final String workType;
+  final String? shift;
   @JsonKey(name: 'labour_count_tonnage', fromJson: _doubleFromJson)
   final double labourCountTonnage;
-  @JsonKey(fromJson: _doubleFromJson)
-  final double rate;
+  @JsonKey(fromJson: _doubleFromJsonNullable)
+  final double? rate;
   @JsonKey(fromJson: _doubleFromJsonNullable)
   final double? amount;
   final String? remarks;
@@ -52,8 +53,9 @@ class LabourCost {
     required this.contractor,
     required this.labourType,
     required this.workType,
+    this.shift,
     required this.labourCountTonnage,
-    required this.rate,
+    this.rate,
     this.amount,
     this.remarks,
     this.invoiceNumber,
@@ -161,6 +163,7 @@ class LabourCost {
     int? contractor,
     String? labourType,
     String? workType,
+    String? shift,
     double? labourCountTonnage,
     double? rate,
     double? amount,
@@ -183,6 +186,7 @@ class LabourCost {
       contractor: contractor ?? this.contractor,
       labourType: labourType ?? this.labourType,
       workType: workType ?? this.workType,
+      shift: shift ?? this.shift,
       labourCountTonnage: labourCountTonnage ?? this.labourCountTonnage,
       rate: rate ?? this.rate,
       amount: amount ?? this.amount,
@@ -245,23 +249,27 @@ class LabourCost {
 
   bool get hasInvoiceInfo => invoiceNumber != null && invoiceNumber!.isNotEmpty;
 
-  double get calculatedAmount => labourCountTonnage * rate;
+  double get calculatedAmount => labourCountTonnage * (rate ?? 0);
 
   // Static constants for choices
   static const List<Map<String, String>> labourTypeChoices = [
     {'value': 'casual', 'label': 'Casual'},
-    {'value': 'skilled', 'label': 'Skilled'},
-    {'value': 'operator', 'label': 'Operator'},
-    {'value': 'supervisor', 'label': 'Supervisor'},
-    {'value': 'others', 'label': 'Others'},
+    {'value': 'tonnes', 'label': 'Tonnes'},
+    {'value': 'fixed', 'label': 'Fixed'},
   ];
 
   static const List<Map<String, String>> workTypeChoices = [
     {'value': 'loading', 'label': 'Loading'},
     {'value': 'unloading', 'label': 'Unloading'},
     {'value': 'shifting', 'label': 'Shifting'},
-    {'value': 'lashing', 'label': 'Lashing'},
-    {'value': 'others', 'label': 'Others'},
+    {'value': 'sorting', 'label': 'Sorting'},
+    {'value': 'other', 'label': 'Other'},
+  ];
+
+  static const List<Map<String, String>> shiftChoices = [
+    {'value': '1st_shift', 'label': '1st Shift'},
+    {'value': '2nd_shift', 'label': '2nd Shift'},
+    {'value': '3rd_shift', 'label': '3rd Shift'},
   ];
 
   static const List<Map<String, dynamic>> invoiceStatusChoices = [

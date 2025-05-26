@@ -137,21 +137,22 @@ class ContractorMasterViewSet(viewsets.ModelViewSet):
 
 class RateMasterViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for managing rate master
+    ViewSet for managing contractor rate master data
     """
-    queryset = RateMaster.objects.all()
+    queryset = RateMaster.objects.filter(is_active=True)
     serializer_class = RateMasterSerializer
-    permission_classes = [IsManagerOrAdmin]
+    permission_classes = [IsManagerOrAdmin]  # Only managers and admins can manage rates
+    pagination_class = None  # Disable pagination for master data
     
     def get_queryset(self):
-        queryset = RateMaster.objects.all()
-        category = self.request.query_params.get('category', None)
-        is_active = self.request.query_params.get('is_active', None)
+        queryset = super().get_queryset()
+        contractor_id = self.request.query_params.get('contractor', None)
+        labour_type = self.request.query_params.get('labour_type', None)
         
-        if category:
-            queryset = queryset.filter(category=category)
-        if is_active is not None:
-            queryset = queryset.filter(is_active=is_active.lower() == 'true')
+        if contractor_id:
+            queryset = queryset.filter(contractor_id=contractor_id)
+        if labour_type:
+            queryset = queryset.filter(labour_type=labour_type)
             
         return queryset
 
