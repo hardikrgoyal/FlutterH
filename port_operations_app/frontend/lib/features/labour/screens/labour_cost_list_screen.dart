@@ -46,8 +46,9 @@ class _LabourCostListScreenState extends ConsumerState<LabourCostListScreen> {
   }
 
   void _loadLabourCosts() {
-    ref.read(labourCostProvider.notifier).clearAndReload(
+    ref.read(labourCostProvider.notifier).loadLabourCosts(
       operationId: widget.operationId,
+      refresh: true,
     );
   }
 
@@ -118,10 +119,19 @@ class _LabourCostListScreenState extends ConsumerState<LabourCostListScreen> {
             child: labourCostState.when(
               data: (labourCosts) {
                 _allLabourCosts = labourCosts;
-                if (_filteredLabourCosts.isEmpty && _searchController.text.isEmpty && _selectedLabourType == null) {
-                  _filteredLabourCosts = labourCosts;
-                }
-                return _buildLabourCostList(_filteredLabourCosts);
+                
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _filterLabourCosts();
+                });
+                
+                final displayList = _filteredLabourCosts.isEmpty && 
+                    _searchController.text.isEmpty && 
+                    _selectedLabourType == null && 
+                    _selectedInvoiceStatus == null
+                    ? labourCosts 
+                    : _filteredLabourCosts;
+                    
+                return _buildLabourCostList(displayList);
               },
               loading: () => const LoadingWidget(),
               error: (error, stack) => AppErrorWidget(

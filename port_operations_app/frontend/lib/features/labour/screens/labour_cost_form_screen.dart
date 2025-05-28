@@ -766,8 +766,6 @@ class _LabourCostFormScreenState extends ConsumerState<LabourCostFormScreen>
           widget.labourCostId!,
           labourCost,
         );
-        // Force refresh the list to show updated data
-        await ref.read(labourCostProvider.notifier).clearAndReload();
       } else {
         await ref.read(labourCostProvider.notifier).addLabourCost(labourCost);
       }

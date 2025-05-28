@@ -105,8 +105,12 @@ class ContractorNotifier extends StateNotifier<AsyncValue<List<ContractorMaster>
 
   Future<void> addContractor(ContractorMaster contractor) async {
     try {
-      await _contractorService.createContractor(contractor);
-      await loadContractors(); // Refresh the list
+      final newContractor = await _contractorService.createContractor(contractor);
+      
+      // Update state immediately by adding to the existing list
+      state.whenData((contractors) {
+        state = AsyncValue.data([newContractor, ...contractors]);
+      });
     } catch (e) {
       rethrow;
     }
@@ -114,8 +118,17 @@ class ContractorNotifier extends StateNotifier<AsyncValue<List<ContractorMaster>
 
   Future<void> updateContractor(int id, ContractorMaster contractor) async {
     try {
-      await _contractorService.updateContractor(id, contractor);
-      await loadContractors(); // Refresh the list
+      final updatedContractor = await _contractorService.updateContractor(id, contractor);
+      
+      // Update state immediately by replacing the updated contractor in the list
+      state.whenData((contractors) {
+        final index = contractors.indexWhere((c) => c.id == id);
+        if (index != -1) {
+          final updatedList = [...contractors];
+          updatedList[index] = updatedContractor;
+          state = AsyncValue.data(updatedList);
+        }
+      });
     } catch (e) {
       rethrow;
     }
@@ -124,7 +137,12 @@ class ContractorNotifier extends StateNotifier<AsyncValue<List<ContractorMaster>
   Future<void> deleteContractor(int id) async {
     try {
       await _contractorService.deleteContractor(id);
-      await loadContractors(); // Refresh the list
+      
+      // Update state immediately by removing the deleted contractor from the list
+      state.whenData((contractors) {
+        final updatedList = contractors.where((c) => c.id != id).toList();
+        state = AsyncValue.data(updatedList);
+      });
     } catch (e) {
       rethrow;
     }

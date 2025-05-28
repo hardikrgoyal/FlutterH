@@ -128,11 +128,23 @@ class _RateMasterListScreenState extends ConsumerState<RateMasterListScreen> {
           Expanded(
             child: rateMasterState.when(
               data: (rateMasters) {
+                // Always update the all rate masters list
                 _allRateMasters = rateMasters;
-                if (_filteredRateMasters.isEmpty && _searchController.text.isEmpty && _selectedLabourType == null && _selectedContractor == null) {
-                  _filteredRateMasters = rateMasters;
-                }
-                return _buildRateMasterList(_filteredRateMasters);
+                
+                // Apply current filters to the new data
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _filterRateMasters();
+                });
+                
+                // Return the current filtered list or all rate masters if no filters
+                final displayList = _filteredRateMasters.isEmpty && 
+                    _searchController.text.isEmpty && 
+                    _selectedLabourType == null && 
+                    _selectedContractor == null
+                    ? rateMasters 
+                    : _filteredRateMasters;
+                    
+                return _buildRateMasterList(displayList);
               },
               loading: () => const LoadingWidget(),
               error: (error, stack) => AppErrorWidget(

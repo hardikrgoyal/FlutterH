@@ -106,29 +106,55 @@ class RateMasterNotifier extends StateNotifier<AsyncValue<List<RateMaster>>> {
 
   Future<void> createRateMaster(RateMaster rateMaster) async {
     try {
-      await _rateMasterService.createRateMaster(rateMaster);
-      await loadRateMasters(); // Refresh the list
+      final newRateMaster = await _rateMasterService.createRateMaster(rateMaster);
+      
+      // Update state immediately by adding the new rate master to the existing list
+      state.whenData((currentRateMasters) {
+        state = AsyncValue.data([newRateMaster, ...currentRateMasters]);
+      });
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);
+      rethrow; // Re-throw to let the UI handle the error
     }
   }
 
   Future<void> updateRateMaster(int id, RateMaster rateMaster) async {
     try {
-      await _rateMasterService.updateRateMaster(id, rateMaster);
-      await loadRateMasters(); // Refresh the list
+      final updatedRateMaster = await _rateMasterService.updateRateMaster(id, rateMaster);
+      
+      // Update state immediately by replacing the updated rate master in the list
+      state.whenData((currentRateMasters) {
+        final index = currentRateMasters.indexWhere((rm) => rm.id == id);
+        if (index != -1) {
+          final updatedList = [...currentRateMasters];
+          updatedList[index] = updatedRateMaster;
+          state = AsyncValue.data(updatedList);
+        }
+      });
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);
+      rethrow; // Re-throw to let the UI handle the error
     }
   }
 
   Future<void> deleteRateMaster(int id) async {
     try {
       await _rateMasterService.deleteRateMaster(id);
-      await loadRateMasters(); // Refresh the list
+      
+      // Update state immediately by removing the deleted rate master from the list
+      state.whenData((currentRateMasters) {
+        final updatedList = currentRateMasters.where((rm) => rm.id != id).toList();
+        state = AsyncValue.data(updatedList);
+      });
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);
+      rethrow; // Re-throw to let the UI handle the error
     }
+  }
+
+  // Refresh method for explicit refresh actions
+  Future<void> refresh({int? contractorId, String? labourType}) async {
+    await loadRateMasters(contractorId: contractorId, labourType: labourType);
   }
 }
 

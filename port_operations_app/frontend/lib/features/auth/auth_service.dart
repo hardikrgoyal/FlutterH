@@ -261,27 +261,30 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
       
       // Step 3: Reset state immediately
       print('🔓 Step 3: Resetting auth state...');
-      final newState = AuthState(
-        user: null,
-        isLoading: false,
-        isLoggedIn: false,
-        error: null,
-      );
-      state = newState;
-      print('🔓 Step 3: Auth state reset - isLoggedIn: ${state.isLoggedIn}, user: ${state.user}');
-      
-      print('🔓 Force logout completed successfully - Final state: isLoggedIn=${state.isLoggedIn}');
-    } catch (e) {
-      print('🔓 Force logout error: $e');
-      // Still reset state even if clearing fails
       state = AuthState(
         user: null,
         isLoading: false,
         isLoggedIn: false,
         error: null,
       );
-      print('🔓 Force logout completed with error, but state reset - isLoggedIn: ${state.isLoggedIn}');
+      print('🔓 Step 3: Auth state reset completed');
+      
+    } catch (e) {
+      print('🔓 Force logout error: $e');
+      // Even if force logout fails, reset the state
+      state = AuthState(
+        user: null,
+        isLoading: false,
+        isLoggedIn: false,
+        error: null,
+      );
     }
+  }
+
+  // Method to handle automatic logout when tokens are invalid
+  Future<void> handleTokenExpired() async {
+    print('🔓 Token expired - handling automatic logout');
+    await forceLogout();
   }
 
   void clearError() {

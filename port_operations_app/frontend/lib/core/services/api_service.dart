@@ -12,6 +12,7 @@ class ApiService {
   late final Dio _dio;
   late final FlutterSecureStorage _storage;
   late final Logger _logger;
+  bool _isRefreshing = false; // Track if refresh is in progress
 
   void initialize() {
     _storage = const FlutterSecureStorage();
@@ -48,9 +49,15 @@ class ApiService {
       onError: (error, handler) async {
         _logger.e('Error: ${error.response?.statusCode} ${error.requestOptions.path}');
         
-        // Handle token refresh on 401
-        if (error.response?.statusCode == 401) {
+        // Handle token refresh on 401, but not for refresh endpoint itself
+        if (error.response?.statusCode == 401 && 
+            !error.requestOptions.path.contains('/auth/token/refresh/') &&
+            !_isRefreshing) {
+          
+          _isRefreshing = true;
           final refreshed = await _refreshToken();
+          _isRefreshing = false;
+          
           if (refreshed) {
             // Retry the original request
             final options = error.requestOptions;
@@ -63,7 +70,11 @@ class ApiService {
               return;
             } catch (e) {
               // If retry fails, proceed with original error
+              _logger.e('Retry failed: $e');
             }
+          } else {
+            // If refresh failed, clear tokens and force logout
+            await clearTokens();
           }
         }
         
@@ -75,8 +86,12 @@ class ApiService {
   Future<bool> _refreshToken() async {
     try {
       final refreshToken = await _storage.read(key: AppConstants.refreshTokenKey);
-      if (refreshToken == null) return false;
+      if (refreshToken == null) {
+        _logger.w('No refresh token available');
+        return false;
+      }
 
+      _logger.d('Attempting token refresh...');
       final response = await _dio.post(
         '/auth/token/refresh/',
         data: {'refresh': refreshToken},
@@ -85,12 +100,19 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final newAccessToken = response.data['access'];
+        final newRefreshToken = response.data['refresh']; // JWT rotates refresh tokens
+        
         await _storage.write(key: AppConstants.accessTokenKey, value: newAccessToken);
+        if (newRefreshToken != null) {
+          await _storage.write(key: AppConstants.refreshTokenKey, value: newRefreshToken);
+        }
+        
+        _logger.d('Token refresh successful');
         return true;
       }
     } catch (e) {
       _logger.e('Token refresh failed: $e');
-      await clearTokens();
+      // Don't clear tokens here, let the caller handle it
     }
     return false;
   }
