@@ -228,12 +228,39 @@ class AppDrawer extends ConsumerWidget {
             },
           },
           {
-            'title': 'Rate Master',
+            'title': 'Transport Details',
+            'icon': Icons.local_shipping,
+            'color': AppColors.info,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/transport');
+            },
+          },
+          {
+            'title': 'Miscellaneous Costs',
+            'icon': Icons.receipt_long,
+            'color': AppColors.secondary,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/miscellaneous');
+            },
+          },
+          {
+            'title': 'Labour Rate Master',
             'icon': Icons.monetization_on,
             'color': AppColors.accent,
             'onTap': () {
               Navigator.pop(context);
               context.go('/rates');
+            },
+          },
+          {
+            'title': 'Equipment Rate Master',
+            'icon': Icons.build_circle,
+            'color': AppColors.secondary,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/equipment-rates');
             },
           },
           {
@@ -296,21 +323,39 @@ class AppDrawer extends ConsumerWidget {
             },
           },
           {
-            'title': 'Transport & Labour',
+            'title': 'Transport Details',
             'icon': Icons.local_shipping,
-            'color': AppColors.warning,
+            'color': AppColors.info,
             'onTap': () {
               Navigator.pop(context);
               context.go('/transport');
             },
           },
           {
-            'title': 'Rate Master',
+            'title': 'Miscellaneous Costs',
+            'icon': Icons.receipt_long,
+            'color': AppColors.secondary,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/miscellaneous');
+            },
+          },
+          {
+            'title': 'Labour Rate Master',
             'icon': Icons.monetization_on,
             'color': AppColors.accent,
             'onTap': () {
               Navigator.pop(context);
               context.go('/rates');
+            },
+          },
+          {
+            'title': 'Equipment Rate Master',
+            'icon': Icons.build_circle,
+            'color': AppColors.secondary,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/equipment-rates');
             },
           },
           {

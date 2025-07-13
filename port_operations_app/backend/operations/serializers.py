@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import (
-    CargoOperation, RateMaster, Equipment, TransportDetail, 
+    CargoOperation, RateMaster, Equipment, EquipmentRateMaster, TransportDetail, 
     LabourCost, MiscellaneousCost, RevenueStream,
     VehicleType, WorkType, PartyMaster, ContractorMaster
 )
@@ -65,6 +65,26 @@ class ContractorMasterSerializer(serializers.ModelSerializer):
         validated_data['created_by'] = self.context['request'].user
         return super().create(validated_data)
 
+class EquipmentRateMasterSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    party_name = serializers.CharField(source='party.name', read_only=True)
+    vehicle_type_name = serializers.CharField(source='vehicle_type.name', read_only=True)
+    work_type_name = serializers.CharField(source='work_type.name', read_only=True)
+    contract_type_display = serializers.CharField(source='get_contract_type_display', read_only=True)
+    
+    class Meta:
+        model = EquipmentRateMaster
+        fields = [
+            'id', 'party', 'party_name', 'vehicle_type', 'vehicle_type_name', 
+            'work_type', 'work_type_name', 'contract_type', 'contract_type_display',
+            'rate', 'is_active', 'created_by', 'created_by_name', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_by', 'created_at', 'updated_at']
+
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        return super().create(validated_data)
+
 class EquipmentSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source='created_by.username', read_only=True)
     ended_by_name = serializers.CharField(source='ended_by.username', read_only=True)
@@ -72,12 +92,27 @@ class EquipmentSerializer(serializers.ModelSerializer):
     vehicle_type_name = serializers.CharField(source='vehicle_type.name', read_only=True)
     work_type_name = serializers.CharField(source='work_type.name', read_only=True)
     party_name = serializers.CharField(source='party.name', read_only=True)
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     
     class Meta:
         model = Equipment
         fields = '__all__'
-        read_only_fields = ['created_by', 'ended_by', 'created_at', 'updated_at', 'duration_hours', 'status']
+        read_only_fields = ['created_by', 'ended_by', 'created_at', 'updated_at', 'duration_hours', 'status', 'amount', 'total_amount']
     
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        
+        # Hide cost and invoice fields from supervisors
+        if request and hasattr(request, 'user') and request.user.is_authenticated:
+            user = request.user
+            if hasattr(user, 'role') and user.role == 'supervisor':
+                # Remove cost and invoice fields for supervisors
+                cost_fields = ['rate', 'amount', 'total_amount', 'invoice_number', 'invoice_received', 'invoice_date']
+                for field in cost_fields:
+                    if field in self.fields:
+                        del self.fields[field]
+
     def create(self, validated_data):
         validated_data['created_by'] = self.context['request'].user
         return super().create(validated_data)

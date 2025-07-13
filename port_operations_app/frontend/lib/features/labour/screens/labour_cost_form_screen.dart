@@ -54,7 +54,6 @@ class _LabourCostFormScreenState extends ConsumerState<LabourCostFormScreen>
   String? _selectedWorkType;
   String? _selectedShift;
   bool? _invoiceReceived;
-  DateTime? _invoiceDate;
 
   @override
   void initState() {
@@ -141,7 +140,6 @@ class _LabourCostFormScreenState extends ConsumerState<LabourCostFormScreen>
       _selectedWorkType = _existingLabourCost!.workType;
       _selectedShift = _existingLabourCost!.shift;
       _invoiceReceived = _existingLabourCost!.invoiceReceived ?? false;
-      _invoiceDate = _existingLabourCost!.invoiceDate;
       
       _calculateAmount();
     }
@@ -899,8 +897,6 @@ class _LabourCostFormScreenState extends ConsumerState<LabourCostFormScreen>
   }
 
   Future<void> _showAddContractorDialog() async {
-    String? contractorName;
-    
     final result = await showDialog<String>(
       context: context,
       barrierDismissible: false,
@@ -916,9 +912,6 @@ class _LabourCostFormScreenState extends ConsumerState<LabourCostFormScreen>
               hintText: 'e.g., ABC Labour Contractors',
             ),
             autofocus: true,
-            onChanged: (value) {
-              contractorName = value.trim();
-            },
             onSubmitted: (value) {
               if (value.trim().isNotEmpty) {
                 Navigator.of(dialogContext).pop(value.trim());

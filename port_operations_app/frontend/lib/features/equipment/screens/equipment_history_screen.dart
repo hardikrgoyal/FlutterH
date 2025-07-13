@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import '../services/equipment_service.dart';
 import '../models/equipment_model.dart';
 import '../../../core/services/api_service.dart';
 import '../../auth/auth_service.dart';
@@ -222,9 +221,14 @@ class _EquipmentHistoryScreenState extends ConsumerState<EquipmentHistoryScreen>
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+      child: InkWell(
+        onTap: () {
+          context.push('/equipment/${equipment.id}/detail');
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
@@ -280,16 +284,23 @@ class _EquipmentHistoryScreenState extends ConsumerState<EquipmentHistoryScreen>
                   child: _buildDetailColumn([
                     _buildDetailRow('Work Type', equipment.workTypeName, Icons.build),
                     _buildDetailRow('Party', equipment.partyName, Icons.business),
+                    _buildDetailRow('Contract', equipment.contractType.toUpperCase(), Icons.assignment),
                   ]),
                 ),
                 Expanded(
                   child: _buildDetailColumn([
                     _buildDetailRow('Started', equipment.formattedStartTime, Icons.play_arrow),
                     _buildDetailRow('Duration', equipment.formattedDuration, Icons.timer),
+                    if (equipment.isCompleted && equipment.quantity != null)
+                      _buildQuantityRow(equipment),
                   ]),
                 ),
               ],
             ),
+            
+            // Billing Information Section (only for completed equipment with billing data and proper role)
+            if (equipment.isCompleted && (equipment.rate != null || equipment.totalAmount != null) && _canViewBilling())
+              _buildBillingSection(equipment),
             
             if (equipment.comments != null && equipment.comments!.isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -336,6 +347,7 @@ class _EquipmentHistoryScreenState extends ConsumerState<EquipmentHistoryScreen>
             ),
           ],
         ),
+        ),
       ),
     );
   }
@@ -364,6 +376,71 @@ class _EquipmentHistoryScreenState extends ConsumerState<EquipmentHistoryScreen>
               overflow: TextOverflow.ellipsis,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuantityRow(Equipment equipment) {
+    String quantityText = '';
+    IconData icon = Icons.info;
+    
+    switch (equipment.contractType.toLowerCase()) {
+      case 'hours':
+        quantityText = '${equipment.quantity} Hours';
+        icon = Icons.schedule;
+        break;
+      case 'shift':
+        quantityText = '${equipment.quantity} Shifts';
+        icon = Icons.access_time;
+        break;
+      case 'fixed':
+        quantityText = 'Fixed Rate';
+        icon = Icons.check_circle;
+        break;
+      case 'tonnes':
+        quantityText = '${equipment.quantity} Tonnes';
+        icon = Icons.scale;
+        break;
+      default:
+        return const SizedBox.shrink();
+    }
+    
+    return _buildDetailRow('Quantity', quantityText, icon);
+  }
+
+  bool _canViewBilling() {
+    final authState = ref.read(authStateProvider);
+    final userRole = authState.user?.role;
+    return userRole == 'admin' || userRole == 'manager';
+  }
+
+  Widget _buildBillingSection(Equipment equipment) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(top: 12),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blue.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Billing Information',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.blue.shade700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (equipment.rate != null)
+            _buildDetailRow('Rate', '₹${equipment.rate}', Icons.attach_money),
+          if (equipment.totalAmount != null)
+            _buildDetailRow('Total Amount', '₹${equipment.totalAmount}', Icons.monetization_on),
+                     _buildDetailRow('Invoice Status', equipment.invoiceStatus.toUpperCase(), Icons.receipt_long),
         ],
       ),
     );

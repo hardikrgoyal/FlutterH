@@ -9,6 +9,8 @@ import 'features/equipment/equipment_screen.dart';
 import 'features/equipment/screens/start_equipment_screen.dart';
 import 'features/equipment/screens/end_equipment_screen.dart';
 import 'features/equipment/screens/equipment_history_screen.dart';
+import 'features/equipment/screens/equipment_detail_screen.dart';
+import 'features/equipment/screens/equipment_edit_screen.dart';
 import 'features/financial/financial_screen.dart';
 import 'features/wallet/wallet_screen.dart';
 import 'features/users/users_screen.dart';
@@ -16,6 +18,13 @@ import 'features/labour/screens/labour_cost_list_screen.dart';
 import 'features/labour/screens/labour_cost_form_screen.dart';
 import 'features/labour/screens/labour_cost_detail_screen.dart';
 import 'features/rate_master/screens/rate_master_list_screen.dart';
+import 'features/equipment/screens/equipment_rate_master_list_screen.dart';
+import 'features/transport/screens/transport_list_screen.dart';
+import 'features/transport/screens/transport_form_screen.dart';
+import 'features/transport/screens/transport_detail_screen.dart';
+import 'features/miscellaneous/screens/miscellaneous_list_screen.dart';
+import 'features/miscellaneous/screens/miscellaneous_form_screen.dart';
+import 'features/miscellaneous/screens/miscellaneous_detail_screen.dart';
 import 'features/auth/auth_service.dart';
 import 'core/constants/app_theme.dart';
 import 'core/constants/app_constants.dart';
@@ -129,6 +138,22 @@ class PortOperationsApp extends ConsumerWidget {
           builder: (context, state) => const EquipmentHistoryScreen(),
         ),
         GoRoute(
+          path: '/equipment/:id/detail',
+          name: 'equipment-detail',
+          builder: (context, state) {
+            final id = int.parse(state.pathParameters['id']!);
+            return EquipmentDetailScreen(equipmentId: id);
+          },
+        ),
+        GoRoute(
+          path: '/equipment/:id/edit',
+          name: 'equipment-edit',
+          builder: (context, state) {
+            final id = int.parse(state.pathParameters['id']!);
+            return EquipmentEditScreen(equipmentId: id);
+          },
+        ),
+        GoRoute(
           path: '/financial',
           name: 'financial',
           builder: (context, state) => const FinancialScreen(),
@@ -176,12 +201,65 @@ class PortOperationsApp extends ConsumerWidget {
         GoRoute(
           path: '/transport',
           name: 'transport',
-          builder: (context, state) => const _PlaceholderScreen(title: 'Transport & Labour'),
+          builder: (context, state) => const TransportListScreen(),
+        ),
+        GoRoute(
+          path: '/transport/add',
+          name: 'transport-add',
+          builder: (context, state) => const TransportFormScreen(),
+        ),
+        GoRoute(
+          path: '/transport/:id/detail',
+          name: 'transport-detail',
+          builder: (context, state) {
+            final id = int.parse(state.pathParameters['id']!);
+            return TransportDetailScreen(transportId: id);
+          },
+        ),
+        GoRoute(
+          path: '/transport/:id/edit',
+          name: 'transport-edit',
+          builder: (context, state) {
+            final id = int.parse(state.pathParameters['id']!);
+            return TransportFormScreen(transportId: id);
+          },
+        ),
+        // Miscellaneous Cost Routes
+        GoRoute(
+          path: '/miscellaneous',
+          name: 'miscellaneous',
+          builder: (context, state) => const MiscellaneousListScreen(),
+        ),
+        GoRoute(
+          path: '/miscellaneous/add',
+          name: 'miscellaneous-add',
+          builder: (context, state) => const MiscellaneousFormScreen(),
+        ),
+        GoRoute(
+          path: '/miscellaneous/:id/detail',
+          name: 'miscellaneous-detail',
+          builder: (context, state) {
+            final id = int.parse(state.pathParameters['id']!);
+            return MiscellaneousDetailScreen(costId: id);
+          },
+        ),
+        GoRoute(
+          path: '/miscellaneous/:id/edit',
+          name: 'miscellaneous-edit',
+          builder: (context, state) {
+            final id = int.parse(state.pathParameters['id']!);
+            return MiscellaneousFormScreen(costId: id);
+          },
         ),
         GoRoute(
           path: '/rates',
           name: 'rates',
           builder: (context, state) => const RateMasterListScreen(),
+        ),
+        GoRoute(
+          path: '/equipment-rates',
+          name: 'equipment-rates',
+          builder: (context, state) => const EquipmentRateMasterListScreen(),
         ),
         GoRoute(
           path: '/revenue',

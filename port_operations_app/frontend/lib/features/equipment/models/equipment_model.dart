@@ -30,6 +30,17 @@ class Equipment {
   final String? endTime;
   @JsonKey(name: 'duration_hours')
   final String? durationHours;
+  final String? quantity;
+  final String? rate;
+  final String? amount;
+  @JsonKey(name: 'total_amount')
+  final String? totalAmount;
+  @JsonKey(name: 'invoice_number')
+  final String? invoiceNumber;
+  @JsonKey(name: 'invoice_received')
+  final bool? invoiceReceived;
+  @JsonKey(name: 'invoice_date')
+  final String? invoiceDate;
   final String? comments;
   final String status;
   @JsonKey(name: 'created_by')
@@ -61,6 +72,13 @@ class Equipment {
     required this.startTime,
     this.endTime,
     this.durationHours,
+    this.quantity,
+    this.rate,
+    this.amount,
+    this.totalAmount,
+    this.invoiceNumber,
+    this.invoiceReceived,
+    this.invoiceDate,
     this.comments,
     required this.status,
     required this.createdBy,
@@ -108,6 +126,57 @@ class Equipment {
     } catch (e) {
       return durationHours!;
     }
+  }
+
+  String get formattedInvoiceDate {
+    if (invoiceDate == null) return '-';
+    try {
+      final dateTime = DateTime.parse(invoiceDate!);
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+    } catch (e) {
+      return invoiceDate!;
+    }
+  }
+
+  String get invoiceStatus {
+    if (invoiceReceived == null) return 'Pending';
+    return invoiceReceived! ? 'Received' : 'Not Applicable';
+  }
+
+  // Calculate current running hours
+  double get currentRunningHours {
+    try {
+      final startDateTime = DateTime.parse(startTime);
+      final now = DateTime.now();
+      final duration = now.difference(startDateTime);
+      return duration.inMinutes / 60.0;
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
+  // Calculate current shifts run (using CEILING formula)
+  double get currentShiftsRun {
+    final hours = currentRunningHours;
+    // CEILING(hours/8, 0.5) formula
+    final shifts = hours / 8.0;
+    return (shifts * 2).ceil() / 2.0;
+  }
+
+  // Calculate time to end current shift
+  String get timeToEndShift {
+    final hours = currentRunningHours;
+    final currentShifts = currentShiftsRun;
+    final hoursForCurrentShifts = currentShifts * 8;
+    final remainingHours = hoursForCurrentShifts - hours;
+    
+    if (remainingHours <= 0) {
+      return '0h 0m';
+    }
+    
+    final wholeHours = remainingHours.floor();
+    final minutes = ((remainingHours - wholeHours) * 60).round();
+    return '${wholeHours}h ${minutes}m';
   }
   
   bool get isRunning => status == 'running';

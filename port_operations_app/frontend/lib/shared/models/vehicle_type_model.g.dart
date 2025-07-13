@@ -11,7 +11,7 @@ VehicleType _$VehicleTypeFromJson(Map<String, dynamic> json) => VehicleType(
   name: json['name'] as String,
   isActive: json['is_active'] as bool,
   createdBy: (json['created_by'] as num).toInt(),
-  createdByName: json['created_by_name'] as String,
+  createdByName: json['created_by_name'] as String?,
   createdAt: json['created_at'] as String,
 );
 

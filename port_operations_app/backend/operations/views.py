@@ -7,12 +7,12 @@ from django.utils import timezone
 from datetime import datetime, timedelta
 
 from .models import (
-    CargoOperation, RateMaster, Equipment, TransportDetail, 
+    CargoOperation, RateMaster, Equipment, EquipmentRateMaster, TransportDetail, 
     LabourCost, MiscellaneousCost, RevenueStream,
     VehicleType, WorkType, PartyMaster, ContractorMaster
 )
 from .serializers import (
-    CargoOperationSerializer, RateMasterSerializer, EquipmentSerializer,
+    CargoOperationSerializer, RateMasterSerializer, EquipmentSerializer, EquipmentRateMasterSerializer,
     TransportDetailSerializer, LabourCostSerializer, MiscellaneousCostSerializer,
     RevenueStreamSerializer, VehicleTypeSerializer, WorkTypeSerializer, 
     PartyMasterSerializer, ContractorMasterSerializer
@@ -156,6 +156,33 @@ class RateMasterViewSet(viewsets.ModelViewSet):
             
         return queryset
 
+class EquipmentRateMasterViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing equipment rate master data
+    """
+    queryset = EquipmentRateMaster.objects.filter(is_active=True)
+    serializer_class = EquipmentRateMasterSerializer
+    permission_classes = [IsManagerOrAdmin]  # Only managers and admins can manage rates
+    pagination_class = None  # Disable pagination for master data
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        party_id = self.request.query_params.get('party', None)
+        vehicle_type_id = self.request.query_params.get('vehicle_type', None)
+        work_type_id = self.request.query_params.get('work_type', None)
+        contract_type = self.request.query_params.get('contract_type', None)
+        
+        if party_id:
+            queryset = queryset.filter(party_id=party_id)
+        if vehicle_type_id:
+            queryset = queryset.filter(vehicle_type_id=vehicle_type_id)
+        if work_type_id:
+            queryset = queryset.filter(work_type_id=work_type_id)
+        if contract_type:
+            queryset = queryset.filter(contract_type=contract_type)
+            
+        return queryset
+
 class EquipmentViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing equipment
@@ -163,6 +190,13 @@ class EquipmentViewSet(viewsets.ModelViewSet):
     queryset = Equipment.objects.all()
     serializer_class = EquipmentSerializer
     permission_classes = [CanManageEquipment]
+    
+    def get_permissions(self):
+        """
+        Instantiate and return the list of permissions required for this view.
+        """
+        permission_classes = [CanManageEquipment]
+        return [permission() for permission in permission_classes]
     
     def get_queryset(self):
         queryset = Equipment.objects.all()
@@ -181,6 +215,35 @@ class EquipmentViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+    
+    def create(self, request, *args, **kwargs):
+        """
+        Custom create method to handle supervisor restrictions
+        """
+        # Supervisors can create but without billing tracking fields
+        if request.user.role == 'supervisor':
+            # Remove billing tracking fields from supervisor requests
+            data = request.data.copy()
+            data.pop('rate', None)
+            data.pop('invoice_number', None)
+            data.pop('invoice_received', None)
+            data.pop('invoice_date', None)
+            request._full_data = data
+        
+        return super().create(request, *args, **kwargs)
+    
+    def update(self, request, *args, **kwargs):
+        """
+        Custom update method to handle supervisor restrictions
+        """
+        # Supervisors cannot edit equipment records
+        if request.user.role == 'supervisor':
+            return Response(
+                {'error': 'Supervisors do not have edit permissions'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        return super().update(request, *args, **kwargs)
     
     @action(detail=False, methods=['get'], url_path='running')
     def running_equipment(self, request):
@@ -206,6 +269,7 @@ class EquipmentViewSet(viewsets.ModelViewSet):
         
         end_time = request.data.get('end_time')
         comments = request.data.get('comments', '')
+        quantity = request.data.get('quantity')
         
         if not end_time:
             end_time = timezone.now()
@@ -227,6 +291,27 @@ class EquipmentViewSet(viewsets.ModelViewSet):
             except ValueError:
                 return Response(
                     {'error': 'Invalid end_time format'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Handle quantity for tonnes contract type
+        if equipment.contract_type == 'tonnes':
+            if not quantity:
+                return Response(
+                    {'error': 'Quantity is required for tonnes contract type'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            try:
+                quantity_decimal = float(quantity)
+                if quantity_decimal <= 0:
+                    return Response(
+                        {'error': 'Quantity must be greater than 0'}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                equipment.quantity = quantity_decimal
+            except (ValueError, TypeError):
+                return Response(
+                    {'error': 'Invalid quantity format'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
         

@@ -50,6 +50,7 @@ class User {
   // Permission helper methods
   bool get canCreateOperations => isAdmin || isManager;
   bool get canManageEquipment => isAdmin || isManager || isSupervisor;
+  bool get canEditEquipment => isAdmin || isManager;
   bool get canApproveExpenses => isAdmin || isManager || isAccountant;
   bool get canManageUsers => isAdmin;
   bool get canViewReports => isAdmin || isManager || isAccountant;

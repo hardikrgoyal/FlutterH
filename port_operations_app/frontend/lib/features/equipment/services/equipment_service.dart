@@ -2,9 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/constants/app_constants.dart';
 import '../models/equipment_model.dart';
-import '../models/vehicle_type_model.dart';
-import '../models/work_type_model.dart';
-import '../models/party_master_model.dart';
+import '../../../shared/models/vehicle_type_model.dart';
+import '../../../shared/models/work_type_model.dart';
+import '../../../shared/models/party_master_model.dart';
 import '../../../shared/models/cargo_operation_model.dart';
 import '../../auth/auth_service.dart';
 
@@ -160,11 +160,13 @@ class EquipmentManagementNotifier extends StateNotifier<EquipmentManagementState
     required int equipmentId,
     required DateTime endTime,
     String? comments,
+    String? quantity,
   }) async {
     try {
       final data = {
         'end_time': endTime.toIso8601String(),
         if (comments != null && comments.isNotEmpty) 'comments': comments,
+        if (quantity != null && quantity.isNotEmpty) 'quantity': quantity,
       };
 
       final response = await _apiService.patch(
@@ -184,6 +186,88 @@ class EquipmentManagementNotifier extends StateNotifier<EquipmentManagementState
       state = state.copyWith(error: 'Failed to end equipment: ${e.toString()}');
       return false;
     }
+  }
+
+  // Get individual equipment details
+  Future<Equipment> getEquipment(int equipmentId) async {
+    try {
+      final response = await _apiService.get('${AppConstants.operationsBaseUrl}/equipment/$equipmentId/');
+      
+      if (response.statusCode == 200) {
+        return Equipment.fromJson(response.data);
+      } else {
+        throw Exception('Failed to load equipment details');
+      }
+    } catch (e) {
+      throw Exception('Failed to load equipment: ${e.toString()}');
+    }
+  }
+
+  // Update equipment
+  Future<Equipment> updateEquipment(int equipmentId, Map<String, dynamic> data) async {
+    try {
+      final response = await _apiService.patch(
+        '${AppConstants.operationsBaseUrl}/equipment/$equipmentId/',
+        data: data,
+      );
+
+      if (response.statusCode == 200) {
+        return Equipment.fromJson(response.data);
+      } else {
+        throw Exception('Failed to update equipment');
+      }
+    } catch (e) {
+      throw Exception('Failed to update equipment: ${e.toString()}');
+    }
+  }
+
+  // Delete equipment
+  Future<bool> deleteEquipment(int equipmentId) async {
+    try {
+      final response = await _apiService.delete('${AppConstants.operationsBaseUrl}/equipment/$equipmentId/');
+      
+      if (response.statusCode == 204) {
+        // Refresh equipment lists if needed
+        await loadRunningEquipment();
+        return true;
+      } else {
+        state = state.copyWith(error: 'Failed to delete equipment');
+        return false;
+      }
+    } catch (e) {
+      state = state.copyWith(error: 'Failed to delete equipment: ${e.toString()}');
+      return false;
+    }
+  }
+
+  // Get all equipment (for history)
+  Future<List<Equipment>> getAllEquipment() async {
+    try {
+      final response = await _apiService.get('${AppConstants.operationsBaseUrl}/equipment/');
+      
+      if (response.statusCode == 200) {
+        final data = response.data;
+        final List<dynamic> results = data is Map ? data['results'] ?? data : data;
+        return results.map((json) => Equipment.fromJson(json)).toList();
+      } else {
+        throw Exception('Failed to load equipment');
+      }
+    } catch (e) {
+      throw Exception('Failed to load equipment: ${e.toString()}');
+    }
+  }
+
+  // Helper methods to get master data separately
+  Future<List<VehicleType>> getVehicleTypes() async {
+    return await _loadVehicleTypes();
+  }
+
+  Future<List<WorkType>> getWorkTypes() async {
+    return await _loadWorkTypes();
+  }
+
+  Future<List<PartyMaster>> getParties() async {
+    return await _loadParties();
   }
 
   // Add new vehicle type (for managers/admins)
@@ -308,6 +392,90 @@ class EquipmentManagementNotifier extends StateNotifier<EquipmentManagementState
 
   void clearError() {
     state = state.copyWith(error: null);
+  }
+}
+
+// Equipment Service Provider (for direct method access)
+final equipmentServiceProvider = Provider<EquipmentService>((ref) {
+  final apiService = ref.watch(apiServiceProvider);
+  return EquipmentService(apiService);
+});
+
+// Equipment Service Class
+class EquipmentService {
+  final ApiService _apiService;
+
+  EquipmentService(this._apiService);
+
+  Future<Equipment> getEquipment(int equipmentId) async {
+    try {
+      final response = await _apiService.get('${AppConstants.operationsBaseUrl}/equipment/$equipmentId/');
+      
+      if (response.statusCode == 200) {
+        return Equipment.fromJson(response.data);
+      } else {
+        throw Exception('Failed to load equipment details');
+      }
+    } catch (e) {
+      throw Exception('Failed to load equipment: ${e.toString()}');
+    }
+  }
+
+  Future<Equipment> updateEquipment(int equipmentId, Map<String, dynamic> data) async {
+    try {
+      final response = await _apiService.patch(
+        '${AppConstants.operationsBaseUrl}/equipment/$equipmentId/',
+        data: data,
+      );
+
+      if (response.statusCode == 200) {
+        return Equipment.fromJson(response.data);
+      } else {
+        throw Exception('Failed to update equipment');
+      }
+    } catch (e) {
+      throw Exception('Failed to update equipment: ${e.toString()}');
+    }
+  }
+
+  Future<bool> deleteEquipment(int equipmentId) async {
+    try {
+      final response = await _apiService.delete('${AppConstants.operationsBaseUrl}/equipment/$equipmentId/');
+      
+      return response.statusCode == 204;
+    } catch (e) {
+      throw Exception('Failed to delete equipment: ${e.toString()}');
+    }
+  }
+
+  Future<List<VehicleType>> getVehicleTypes() async {
+    final response = await _apiService.get('${AppConstants.operationsBaseUrl}/vehicle-types/');
+    if (response.statusCode == 200) {
+      final data = response.data;
+      final List<dynamic> results = data is Map ? data['results'] ?? data : data;
+      return results.map((json) => VehicleType.fromJson(json)).toList();
+    }
+    throw Exception('Failed to load vehicle types');
+  }
+
+  Future<List<WorkType>> getWorkTypes() async {
+    final response = await _apiService.get('${AppConstants.operationsBaseUrl}/work-types/');
+    if (response.statusCode == 200) {
+      final data = response.data;
+      final List<dynamic> results = data is Map ? data['results'] ?? data : data;
+      return results.map((json) => WorkType.fromJson(json)).toList();
+    }
+    throw Exception('Failed to load work types');
+  }
+
+  Future<List<PartyMaster>> getParties() async {
+    final response = await _apiService.get('${AppConstants.operationsBaseUrl}/party-master/');
+    if (response.statusCode == 200) {
+      final data = response.data;
+      final List<dynamic> results = data is Map ? data['results'] ?? data : data;
+      return results.map((json) => PartyMaster.fromJson(json)).toList();
+    }
+    throw Exception('Failed to load parties');
   }
 }
 

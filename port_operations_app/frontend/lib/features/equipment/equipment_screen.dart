@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../shared/widgets/app_drawer.dart';
-import '../../core/constants/app_colors.dart';
 import '../auth/auth_service.dart';
 
 class EquipmentScreen extends ConsumerStatefulWidget {
@@ -13,9 +12,6 @@ class EquipmentScreen extends ConsumerStatefulWidget {
 }
 
 class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
-  final String _selectedType = 'all';
-  final List<String> _types = ['all', 'crane', 'forklift', 'truck', 'reachstacker'];
-
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
@@ -160,7 +156,7 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(

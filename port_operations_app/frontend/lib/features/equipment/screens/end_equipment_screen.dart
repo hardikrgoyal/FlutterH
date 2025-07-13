@@ -219,12 +219,16 @@ class _EndEquipmentScreenState extends ConsumerState<EndEquipmentScreen> {
             
             const SizedBox(height: 16),
             
-            // Equipment details
+            // Basic equipment details
             _buildDetailRow('Work Type', equipment.workTypeName, Icons.build),
             _buildDetailRow('Party', equipment.partyName, Icons.business),
             _buildDetailRow('Contract', equipment.contractType.toUpperCase(), Icons.assignment),
             _buildDetailRow('Started', equipment.formattedStartTime, Icons.access_time),
             _buildDetailRow('Started By', equipment.createdByName, Icons.person),
+            
+            // Contract-specific information
+            const SizedBox(height: 12),
+            _buildContractSpecificInfo(equipment),
             
             const SizedBox(height: 20),
             
@@ -247,6 +251,176 @@ class _EndEquipmentScreenState extends ConsumerState<EndEquipmentScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildContractSpecificInfo(Equipment equipment) {
+    switch (equipment.contractType.toLowerCase()) {
+      case 'hours':
+        return _buildHoursContractInfo(equipment);
+      case 'shift':
+        return _buildShiftContractInfo(equipment);
+      case 'fixed':
+        return _buildFixedContractInfo(equipment);
+      case 'tonnes':
+        return _buildTonnesContractInfo(equipment);
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildHoursContractInfo(Equipment equipment) {
+    final totalHours = equipment.currentRunningHours;
+    final hours = totalHours.floor();
+    final minutes = ((totalHours - hours) * 60).round();
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blue.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.schedule, size: 16, color: Colors.blue.shade700),
+              const SizedBox(width: 8),
+              Text(
+                'Hours Contract',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.blue.shade700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Total Hours Running:', style: TextStyle(color: Colors.grey.shade700)),
+              Text(
+                '${hours}h ${minutes}m',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.blue.shade700,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShiftContractInfo(Equipment equipment) {
+    final shiftsRun = equipment.currentShiftsRun;
+    final timeToEnd = equipment.timeToEndShift;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.access_time, size: 16, color: Colors.orange.shade700),
+              const SizedBox(width: 8),
+              Text(
+                'Shift Contract',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.orange.shade700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Shifts Run:', style: TextStyle(color: Colors.grey.shade700)),
+              Text(
+                '$shiftsRun',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.orange.shade700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Time to End Shift:', style: TextStyle(color: Colors.grey.shade700)),
+              Text(
+                timeToEnd,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.orange.shade700,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFixedContractInfo(Equipment equipment) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.green.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle, size: 16, color: Colors.green.shade700),
+          const SizedBox(width: 8),
+          Text(
+            'Fixed Contract - Ready to End',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Colors.green.shade700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTonnesContractInfo(Equipment equipment) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.purple.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.purple.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.scale, size: 16, color: Colors.purple.shade700),
+          const SizedBox(width: 8),
+          Text(
+            'Tonnes Contract - Quantity Required',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Colors.purple.shade700,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -290,6 +464,7 @@ class _EndEquipmentScreenState extends ConsumerState<EndEquipmentScreen> {
       text: DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now()),
     );
     final commentsController = TextEditingController();
+    final quantityController = TextEditingController();
     DateTime selectedEndTime = DateTime.now();
 
     final result = await showDialog<bool>(
@@ -323,6 +498,7 @@ class _EndEquipmentScreenState extends ConsumerState<EndEquipmentScreen> {
                       Text('Operation: ${equipment.operationName}'),
                       Text('Work Type: ${equipment.workTypeName}'),
                       Text('Party: ${equipment.partyName}'),
+                      Text('Contract Type: ${equipment.contractType.toUpperCase()}'),
                       Text('Started: ${equipment.formattedStartTime}'),
                     ],
                   ),
@@ -373,6 +549,21 @@ class _EndEquipmentScreenState extends ConsumerState<EndEquipmentScreen> {
                 
                 const SizedBox(height: 16),
                 
+                // Quantity field for tonnes contract type
+                if (equipment.contractType.toLowerCase() == 'tonnes')
+                  TextField(
+                    controller: quantityController,
+                    decoration: const InputDecoration(
+                      labelText: 'Quantity (Tonnes) *',
+                      hintText: 'Enter quantity in tonnes',
+                      prefixIcon: Icon(Icons.scale),
+                    ),
+                    keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  ),
+                
+                if (equipment.contractType.toLowerCase() == 'tonnes')
+                  const SizedBox(height: 16),
+                
                 // Comments field
                 TextField(
                   controller: commentsController,
@@ -393,7 +584,33 @@ class _EndEquipmentScreenState extends ConsumerState<EndEquipmentScreen> {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
+              onPressed: () {
+                // Validate quantity for tonnes contract type
+                if (equipment.contractType.toLowerCase() == 'tonnes') {
+                  if (quantityController.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please enter quantity for tonnes contract'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+                  
+                  final quantity = double.tryParse(quantityController.text.trim());
+                  if (quantity == null || quantity <= 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please enter a valid quantity'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+                }
+                
+                Navigator.of(context).pop(true);
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red.shade600,
                 foregroundColor: Colors.white,
@@ -406,15 +623,21 @@ class _EndEquipmentScreenState extends ConsumerState<EndEquipmentScreen> {
     );
 
     if (result == true) {
+      String? quantity;
+      if (equipment.contractType.toLowerCase() == 'tonnes') {
+        quantity = quantityController.text.trim();
+      }
+      
       await _endEquipment(
         equipment.id,
         selectedEndTime,
         commentsController.text.trim().isNotEmpty ? commentsController.text.trim() : null,
+        quantity,
       );
     }
   }
 
-  Future<void> _endEquipment(int equipmentId, DateTime endTime, String? comments) async {
+  Future<void> _endEquipment(int equipmentId, DateTime endTime, String? comments, String? quantity) async {
     setState(() {
       _isLoading = true;
     });
@@ -424,6 +647,7 @@ class _EndEquipmentScreenState extends ConsumerState<EndEquipmentScreen> {
         equipmentId: equipmentId,
         endTime: endTime,
         comments: comments,
+        quantity: quantity,
       );
 
       if (success && mounted) {

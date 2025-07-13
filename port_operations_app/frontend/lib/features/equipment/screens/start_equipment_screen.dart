@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../services/equipment_service.dart';
 import '../../auth/auth_service.dart';
-import 'package:go_router/go_router.dart';
 
 class StartEquipmentScreen extends ConsumerStatefulWidget {
   const StartEquipmentScreen({super.key});

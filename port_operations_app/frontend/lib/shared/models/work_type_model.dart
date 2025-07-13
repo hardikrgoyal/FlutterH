@@ -1,9 +1,9 @@
 import 'package:json_annotation/json_annotation.dart';
 
-part 'vehicle_type_model.g.dart';
+part 'work_type_model.g.dart';
 
 @JsonSerializable()
-class VehicleType {
+class WorkType {
   final int id;
   final String name;
   @JsonKey(name: 'is_active')
@@ -11,24 +11,19 @@ class VehicleType {
   @JsonKey(name: 'created_by')
   final int createdBy;
   @JsonKey(name: 'created_by_name')
-  final String createdByName;
+  final String? createdByName;
   @JsonKey(name: 'created_at')
   final String createdAt;
 
-  const VehicleType({
+  WorkType({
     required this.id,
     required this.name,
     required this.isActive,
     required this.createdBy,
-    required this.createdByName,
+    this.createdByName,
     required this.createdAt,
   });
 
-  factory VehicleType.fromJson(Map<String, dynamic> json) =>
-      _$VehicleTypeFromJson(json);
-
-  Map<String, dynamic> toJson() => _$VehicleTypeToJson(this);
-
-  @override
-  String toString() => name;
+  factory WorkType.fromJson(Map<String, dynamic> json) => _$WorkTypeFromJson(json);
+  Map<String, dynamic> toJson() => _$WorkTypeToJson(this);
 } 

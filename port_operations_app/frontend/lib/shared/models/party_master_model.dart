@@ -15,26 +15,21 @@ class PartyMaster {
   @JsonKey(name: 'created_by')
   final int createdBy;
   @JsonKey(name: 'created_by_name')
-  final String createdByName;
+  final String? createdByName;
   @JsonKey(name: 'created_at')
   final String createdAt;
 
-  const PartyMaster({
+  PartyMaster({
     required this.id,
     required this.name,
     this.contactPerson,
     this.phoneNumber,
     required this.isActive,
     required this.createdBy,
-    required this.createdByName,
+    this.createdByName,
     required this.createdAt,
   });
 
-  factory PartyMaster.fromJson(Map<String, dynamic> json) =>
-      _$PartyMasterFromJson(json);
-
+  factory PartyMaster.fromJson(Map<String, dynamic> json) => _$PartyMasterFromJson(json);
   Map<String, dynamic> toJson() => _$PartyMasterToJson(this);
-
-  @override
-  String toString() => name;
 } 

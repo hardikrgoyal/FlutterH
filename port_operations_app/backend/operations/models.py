@@ -131,12 +131,33 @@ class Equipment(models.Model):
     start_time = models.DateTimeField()
     end_time = models.DateTimeField(blank=True, null=True)
     duration_hours = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    quantity = models.DecimalField(max_digits=10, decimal_places=3, blank=True, null=True, help_text="Calculated quantity based on contract type")
     comments = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='running')
+    
+    # Rate and amount - only visible to managers and admins
+    rate = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], blank=True, null=True)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    
+    # Invoice tracking fields - only for managers and admins
+    invoice_number = models.CharField(max_length=50, blank=True, null=True)
+    invoice_received = models.BooleanField(null=True, blank=True)  # null=pending, True=received, False=not applicable
+    invoice_date = models.DateField(blank=True, null=True)
+    
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_equipment')
     ended_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ended_equipment', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    @property
+    def amount(self):
+        """Calculate total amount"""
+        if self.rate is not None and self.quantity is not None:
+            # Ensure both values are Decimal for consistent calculation
+            rate_decimal = Decimal(str(self.rate)) if not isinstance(self.rate, Decimal) else self.rate
+            quantity_decimal = Decimal(str(self.quantity)) if not isinstance(self.quantity, Decimal) else self.quantity
+            return quantity_decimal * rate_decimal
+        return None
     
     def save(self, *args, **kwargs):
         # Calculate duration when equipment is ended
@@ -144,6 +165,42 @@ class Equipment(models.Model):
             duration = self.end_time - self.start_time
             self.duration_hours = Decimal(str(duration.total_seconds() / 3600))
             self.status = 'completed'
+            
+            # Calculate quantity based on contract type if not already set
+            if self.quantity is None:
+                if self.contract_type == 'hours':
+                    self.quantity = self.duration_hours
+                elif self.contract_type == 'shift':
+                    # CEILING(hours/8, 0.5) formula
+                    shifts = self.duration_hours / Decimal('8')
+                    import math
+                    # Convert to float for math.ceil operation, then back to Decimal
+                    shifts_float = float(shifts)
+                    self.quantity = Decimal(str(math.ceil(shifts_float * 2) / 2))  # Round to nearest 0.5
+                elif self.contract_type == 'fixed':
+                    self.quantity = Decimal('1.0')
+                # For tonnes, quantity should be set manually before ending
+            
+            # Auto-populate rate from EquipmentRateMaster if not provided
+            if not self.rate:
+                try:
+                    rate_master = EquipmentRateMaster.objects.get(
+                        party=self.party,
+                        vehicle_type=self.vehicle_type,
+                        work_type=self.work_type,
+                        contract_type=self.contract_type,
+                        is_active=True
+                    )
+                    self.rate = rate_master.rate
+                except EquipmentRateMaster.DoesNotExist:
+                    pass  # Rate will need to be provided manually
+            
+            # Calculate total amount - ensure both values are Decimal
+            if self.rate and self.quantity:
+                # Convert both to Decimal to ensure type compatibility
+                rate_decimal = Decimal(str(self.rate)) if not isinstance(self.rate, Decimal) else self.rate
+                quantity_decimal = Decimal(str(self.quantity)) if not isinstance(self.quantity, Decimal) else self.quantity
+                self.total_amount = quantity_decimal * rate_decimal
         
         # Convert vehicle number to uppercase
         if self.vehicle_number:
@@ -156,6 +213,27 @@ class Equipment(models.Model):
     
     class Meta:
         ordering = ['-created_at']
+
+class EquipmentRateMaster(models.Model):
+    """
+    Master data for equipment rates based on party, vehicle type, work type, and contract type
+    """
+    party = models.ForeignKey(PartyMaster, on_delete=models.CASCADE)
+    vehicle_type = models.ForeignKey(VehicleType, on_delete=models.CASCADE) 
+    work_type = models.ForeignKey(WorkType, on_delete=models.CASCADE)
+    contract_type = models.CharField(max_length=20, choices=Equipment.CONTRACT_TYPE_CHOICES)
+    rate = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['party', 'vehicle_type', 'work_type', 'contract_type']
+        ordering = ['party__name', 'vehicle_type__name', 'work_type__name', 'contract_type']
+    
+    def __str__(self):
+        return f"{self.party.name} - {self.vehicle_type.name} - {self.work_type.name} - {self.get_contract_type_display()} - ₹{self.rate}"
 
 class RateMaster(models.Model):
     """
@@ -209,8 +287,11 @@ class TransportDetail(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def save(self, *args, **kwargs):
-        # Auto-calculate cost
-        self.cost = self.quantity * self.rate
+        # Auto-calculate cost - ensure both values are Decimal
+        if self.quantity and self.rate:
+            quantity_decimal = Decimal(str(self.quantity)) if not isinstance(self.quantity, Decimal) else self.quantity
+            rate_decimal = Decimal(str(self.rate)) if not isinstance(self.rate, Decimal) else self.rate
+            self.cost = quantity_decimal * rate_decimal
         super().save(*args, **kwargs)
     
     def __str__(self):
@@ -273,7 +354,10 @@ class LabourCost(models.Model):
     def amount(self):
         """Calculate total amount"""
         if self.rate is not None:
-            return self.labour_count_tonnage * self.rate
+            # Ensure both values are Decimal for consistent calculation
+            rate_decimal = Decimal(str(self.rate)) if not isinstance(self.rate, Decimal) else self.rate
+            labour_decimal = Decimal(str(self.labour_count_tonnage)) if not isinstance(self.labour_count_tonnage, Decimal) else self.labour_count_tonnage
+            return labour_decimal * rate_decimal
         return None
 
     @property
@@ -344,14 +428,18 @@ class MiscellaneousCost(models.Model):
     quantity = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     rate = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     total = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    bill_no = models.CharField(max_length=50, blank=True, null=True)
     remarks = models.TextField(blank=True, null=True)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     def save(self, *args, **kwargs):
-        # Auto-calculate total
-        self.total = self.quantity * self.rate
+        # Auto-calculate total - ensure both values are Decimal
+        if self.quantity and self.rate:
+            quantity_decimal = Decimal(str(self.quantity)) if not isinstance(self.quantity, Decimal) else self.quantity
+            rate_decimal = Decimal(str(self.rate)) if not isinstance(self.rate, Decimal) else self.rate
+            self.total = quantity_decimal * rate_decimal
         super().save(*args, **kwargs)
     
     def __str__(self):
@@ -396,8 +484,11 @@ class RevenueStream(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def save(self, *args, **kwargs):
-        # Auto-calculate amount
-        self.amount = self.quantity * self.rate
+        # Auto-calculate amount - ensure both values are Decimal
+        if self.quantity and self.rate:
+            quantity_decimal = Decimal(str(self.quantity)) if not isinstance(self.quantity, Decimal) else self.quantity
+            rate_decimal = Decimal(str(self.rate)) if not isinstance(self.rate, Decimal) else self.rate
+            self.amount = quantity_decimal * rate_decimal
         super().save(*args, **kwargs)
     
     def __str__(self):

@@ -477,11 +477,11 @@ class DashboardScreen extends ConsumerWidget {
             },
           },
           {
-            'title': 'Rate Master',
-            'icon': Icons.monetization_on,
+            'title': 'Equipment Rates',
+            'icon': Icons.build_circle,
             'color': AppColors.accent,
             'onTap': () {
-              context.go('/rates');
+              context.go('/equipment-rates');
             },
           },
           {

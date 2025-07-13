@@ -13,7 +13,7 @@ PartyMaster _$PartyMasterFromJson(Map<String, dynamic> json) => PartyMaster(
   phoneNumber: json['phone_number'] as String?,
   isActive: json['is_active'] as bool,
   createdBy: (json['created_by'] as num).toInt(),
-  createdByName: json['created_by_name'] as String,
+  createdByName: json['created_by_name'] as String?,
   createdAt: json['created_at'] as String,
 );
 
