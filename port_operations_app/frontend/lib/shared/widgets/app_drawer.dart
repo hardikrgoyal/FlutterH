@@ -264,6 +264,15 @@ class AppDrawer extends ConsumerWidget {
             },
           },
           {
+            'title': 'Revenue Streams',
+            'icon': Icons.account_balance_wallet,
+            'color': AppColors.success,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/revenue');
+            },
+          },
+          {
             'title': 'Financial',
             'icon': Icons.currency_rupee,
             'color': AppColors.success,
@@ -356,6 +365,15 @@ class AppDrawer extends ConsumerWidget {
             'onTap': () {
               Navigator.pop(context);
               context.go('/equipment-rates');
+            },
+          },
+          {
+            'title': 'Revenue Streams',
+            'icon': Icons.account_balance_wallet,
+            'color': AppColors.success,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/revenue');
             },
           },
           {

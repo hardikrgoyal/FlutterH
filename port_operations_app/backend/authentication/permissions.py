@@ -98,4 +98,11 @@ class CanAccessLabourCosts(permissions.BasePermission):
         if request.user.role == 'accountant':
             return request.method in ['GET', 'PUT', 'PATCH']
         
-        return False 
+        return False
+
+class CanManageRevenue(BaseRolePermission):
+    """
+    Permission for users who can manage revenue streams
+    Admin, Manager, and Accountant access
+    """
+    allowed_roles = ['admin', 'manager', 'accountant'] 

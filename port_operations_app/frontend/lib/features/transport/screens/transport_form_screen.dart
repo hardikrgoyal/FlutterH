@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../shared/models/transport_detail_model.dart';
 import '../../../shared/models/cargo_operation_model.dart';
+import '../../../shared/widgets/app_drawer.dart';
 
 import '../services/transport_service.dart';
 import '../../auth/auth_service.dart';
@@ -245,6 +246,7 @@ class _TransportFormScreenState extends ConsumerState<TransportFormScreen> {
     if (user == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
+        drawer: AppDrawer(),
       );
     }
 
@@ -271,6 +273,7 @@ class _TransportFormScreenState extends ConsumerState<TransportFormScreen> {
             ),
         ],
       ),
+      drawer: const AppDrawer(),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Stack(

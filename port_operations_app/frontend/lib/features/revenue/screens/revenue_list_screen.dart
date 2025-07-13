@@ -4,28 +4,29 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../shared/models/miscellaneous_cost_model.dart';
+import '../../../shared/models/revenue_stream_model.dart';
 import '../../../shared/widgets/app_drawer.dart';
-import '../services/miscellaneous_service.dart';
+import '../services/revenue_service.dart';
 import '../../auth/auth_service.dart';
 
-class MiscellaneousListScreen extends ConsumerStatefulWidget {
-  const MiscellaneousListScreen({super.key});
+class RevenueListScreen extends ConsumerStatefulWidget {
+  const RevenueListScreen({super.key});
 
   @override
-  ConsumerState<MiscellaneousListScreen> createState() => _MiscellaneousListScreenState();
+  ConsumerState<RevenueListScreen> createState() => _RevenueListScreenState();
 }
 
-class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScreen> {
+class _RevenueListScreenState extends ConsumerState<RevenueListScreen> {
   final _searchController = TextEditingController();
-  String? _selectedCostType;
-  int? _selectedOperationId;
+  String? _selectedServiceType;
+  String? _selectedUnitType;
+  bool _isSearching = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadData();
+      _refreshData();
     });
   }
 
@@ -35,52 +36,74 @@ class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScree
     super.dispose();
   }
 
-  Future<void> _loadData() async {
-    await Future.wait([
-      ref.read(miscellaneousCostProvider.notifier).loadMiscellaneousCosts(),
-      ref.read(miscellaneousCostProvider.notifier).loadOperations(),
-    ]);
+  Future<void> _refreshData() async {
+    await ref.read(revenueStreamProvider.notifier).loadRevenueStreams(
+      search: _searchController.text.isNotEmpty ? _searchController.text : null,
+      serviceType: _selectedServiceType,
+      unitType: _selectedUnitType,
+    );
+    
+    // Load master data
+    await ref.read(revenueStreamProvider.notifier).loadMasterData();
   }
 
-  Future<void> _refreshData() async {
-    await _loadData();
+  void _onSearchChanged(String value) {
+    // Debounce search
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (_searchController.text == value) {
+        _performSearch();
+      }
+    });
   }
 
   void _performSearch() {
-    ref.read(miscellaneousCostProvider.notifier).loadMiscellaneousCosts(
-      search: _searchController.text.trim().isEmpty ? null : _searchController.text.trim(),
-      costType: _selectedCostType,
-      operationId: _selectedOperationId,
+    ref.read(revenueStreamProvider.notifier).loadRevenueStreams(
+      search: _searchController.text.isNotEmpty ? _searchController.text : null,
+      serviceType: _selectedServiceType,
+      unitType: _selectedUnitType,
     );
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() {
+      _selectedServiceType = null;
+      _selectedUnitType = null;
+    });
+    _performSearch();
   }
 
   void _showSearchDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Search Miscellaneous Costs'),
+        title: const Text('Search Revenue Streams'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: _searchController,
               decoration: const InputDecoration(
-                labelText: 'Search by party, remarks',
-                hintText: 'Enter search term',
+                labelText: 'Search by party, operation, or remarks',
+                border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.search),
               ),
+              onChanged: _onSearchChanged,
             ),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
             onPressed: () {
-              _performSearch();
+              _clearSearch();
               Navigator.of(context).pop();
+            },
+            child: const Text('Clear'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _performSearch();
             },
             child: const Text('Search'),
           ),
@@ -89,25 +112,18 @@ class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScree
     );
   }
 
-  void _clearFilters() {
-    setState(() {
-      _selectedCostType = null;
-      _selectedOperationId = null;
-      _searchController.clear();
-    });
-    ref.read(miscellaneousCostProvider.notifier).loadMiscellaneousCosts();
+  bool _hasPermission() {
+    final user = ref.read(authStateProvider).user;
+    if (user == null) return false;
+    return ['admin', 'manager', 'accountant'].contains(user.role);
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(authStateProvider).user;
-    final miscState = ref.watch(miscellaneousCostProvider);
-
-    // Check role-based access (Manager/Admin only)
-    if (user?.role != 'manager' && user?.role != 'admin') {
+    if (!_hasPermission()) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Miscellaneous Costs'),
+          title: const Text('Revenue Streams'),
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
         ),
@@ -119,12 +135,12 @@ class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScree
               Icon(Icons.lock_outline, size: 64, color: Colors.grey),
               SizedBox(height: 16),
               Text(
-                'Access Restricted',
+                'Access Denied',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 8),
               Text(
-                'Only Managers and Admins can access miscellaneous costs',
+                'You do not have permission to access Revenue Streams.\nContact your administrator.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey),
               ),
@@ -134,19 +150,21 @@ class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScree
       );
     }
 
+    final revenueState = ref.watch(revenueStreamProvider);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Miscellaneous Costs'),
+        title: const Text('Revenue Streams'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.search),
             onPressed: _showSearchDialog,
+            icon: const Icon(Icons.search),
           ),
           IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => context.push('/miscellaneous/add'),
+            onPressed: _refreshData,
+            icon: const Icon(Icons.refresh),
           ),
         ],
       ),
@@ -156,52 +174,75 @@ class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScree
           // Filter Section
           Container(
             padding: const EdgeInsets.all(16),
-            color: Colors.grey.shade50,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              border: Border(
+                bottom: BorderSide(color: Colors.grey.shade200),
+              ),
+            ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Filter Chips Row
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      // Cost Type Filter
-                      ...MiscellaneousCost.costTypes.map((costType) {
-                        final isSelected = _selectedCostType == costType;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: FilterChip(
-                            label: Text(MiscellaneousCost.costTypeLabels[costType] ?? costType),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              setState(() {
-                                _selectedCostType = selected ? costType : null;
-                              });
-                              _performSearch();
-                            },
-                            backgroundColor: Colors.white,
-                            selectedColor: AppColors.primary.withValues(alpha: 0.2),
-                            checkmarkColor: AppColors.primary,
-                          ),
-                        );
-                      }),
-                      
-                      // Clear Filters
-                      if (_selectedCostType != null || _searchController.text.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: ActionChip(
-                            label: const Text('Clear'),
-                            onPressed: _clearFilters,
-                            backgroundColor: Colors.red.shade50,
-                            side: BorderSide(color: Colors.red.shade200),
-                          ),
+                // Service Type Filters
+                Row(
+                  children: [
+                    const Text(
+                      'Service Type:',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _buildFilterChip('All', null, _selectedServiceType),
+                            ...revenueState.serviceTypes.map((serviceType) =>
+                                _buildFilterChip(
+                                  serviceType.name,
+                                  serviceType.code,
+                                  _selectedServiceType,
+                                ),
+                            ),
+                          ],
                         ),
-                    ],
-                  ),
+                      ),
+                    ),
+                  ],
                 ),
                 
+                const SizedBox(height: 12),
+                
+                // Unit Type Filters
+                Row(
+                  children: [
+                    const Text(
+                      'Unit Type:',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _buildUnitTypeFilterChip('All', null, _selectedUnitType),
+                            ...revenueState.unitTypes.map((unitType) =>
+                                _buildUnitTypeFilterChip(
+                                  unitType.name,
+                                  unitType.code,
+                                  _selectedUnitType,
+                                ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
                 // Search Results Info
-                if (_searchController.text.isNotEmpty || _selectedCostType != null)
+                if (_searchController.text.isNotEmpty || _selectedServiceType != null || _selectedUnitType != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Row(
@@ -209,7 +250,7 @@ class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScree
                         Icon(Icons.info_outline, size: 16, color: Colors.grey.shade600),
                         const SizedBox(width: 4),
                         Text(
-                          'Filtered results: ${miscState.miscellaneousCosts.length} items',
+                          'Filtered results: ${revenueState.revenueStreams.length} items',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey.shade600,
@@ -224,9 +265,9 @@ class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScree
 
           // Content Section
           Expanded(
-            child: miscState.isLoading
+            child: revenueState.isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : miscState.error != null
+                : revenueState.error != null
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -243,7 +284,7 @@ class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScree
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              miscState.error!,
+                              revenueState.error!,
                               textAlign: TextAlign.center,
                               style: TextStyle(color: Colors.red.shade600),
                             ),
@@ -256,15 +297,15 @@ class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScree
                           ],
                         ),
                       )
-                    : miscState.miscellaneousCosts.isEmpty
+                    : revenueState.revenueStreams.isEmpty
                         ? Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.receipt_long_outlined, size: 64, color: Colors.grey.shade400),
+                                Icon(Icons.account_balance_outlined, size: 64, color: Colors.grey.shade400),
                                 const SizedBox(height: 16),
                                 Text(
-                                  'No Miscellaneous Costs',
+                                  'No Revenue Streams',
                                   style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
@@ -273,17 +314,17 @@ class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScree
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  _searchController.text.isNotEmpty || _selectedCostType != null
-                                      ? 'No costs match your search criteria'
-                                      : 'Start by adding your first miscellaneous cost',
+                                  _searchController.text.isNotEmpty || _selectedServiceType != null || _selectedUnitType != null
+                                      ? 'No revenue streams match your search criteria'
+                                      : 'Start by adding your first revenue stream',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(color: Colors.grey.shade500),
                                 ),
                                 const SizedBox(height: 16),
                                 ElevatedButton.icon(
-                                  onPressed: () => context.push('/miscellaneous/add'),
+                                  onPressed: () => context.push('/revenue/add'),
                                   icon: const Icon(Icons.add),
-                                  label: const Text('Add Miscellaneous Cost'),
+                                  label: const Text('Add Revenue Stream'),
                                 ),
                               ],
                             ),
@@ -292,27 +333,73 @@ class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScree
                             onRefresh: _refreshData,
                             child: ListView.builder(
                               padding: const EdgeInsets.all(16),
-                              itemCount: miscState.miscellaneousCosts.length,
+                              itemCount: revenueState.revenueStreams.length,
                               itemBuilder: (context, index) {
-                                final cost = miscState.miscellaneousCosts[index];
-                                return _buildCostCard(cost);
+                                final stream = revenueState.revenueStreams[index];
+                                return _buildRevenueCard(stream);
                               },
                             ),
                           ),
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => context.push('/revenue/add'),
+        backgroundColor: AppColors.primary,
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
     );
   }
 
-  Widget _buildCostCard(MiscellaneousCost cost) {
-    final costTypeColor = Color(int.parse(cost.costTypeColor.replaceFirst('#', '0xFF')));
+  Widget _buildFilterChip(String label, String? value, String? selectedValue) {
+    final isSelected = selectedValue == value;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(label),
+        selected: isSelected,
+        onSelected: (selected) {
+          setState(() {
+            _selectedServiceType = selected ? value : null;
+          });
+          _performSearch();
+        },
+        backgroundColor: Colors.white,
+        selectedColor: AppColors.primary.withValues(alpha: 0.2),
+        checkmarkColor: AppColors.primary,
+      ),
+    );
+  }
+
+  Widget _buildUnitTypeFilterChip(String label, String? value, String? selectedValue) {
+    final isSelected = selectedValue == value;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(label),
+        selected: isSelected,
+        onSelected: (selected) {
+          setState(() {
+            _selectedUnitType = selected ? value : null;
+          });
+          _performSearch();
+        },
+        backgroundColor: Colors.white,
+        selectedColor: AppColors.secondary.withValues(alpha: 0.2),
+        checkmarkColor: AppColors.secondary,
+      ),
+    );
+  }
+
+  Widget _buildRevenueCard(RevenueStream stream) {
+    final serviceTypeColor = Color(int.parse(stream.serviceTypeColor.replaceFirst('#', '0xFF')));
+    final unitTypeColor = Color(int.parse(stream.unitTypeColorCode.replaceFirst('#', '0xFF')));
     
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
       child: InkWell(
-        onTap: () => context.push('/miscellaneous/${cost.id}/detail'),
+        onTap: () => context.push('/revenue/${stream.id}/detail'),
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -322,18 +409,36 @@ class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScree
               // Header Row
               Row(
                 children: [
-                  // Cost Type Badge
+                  // Service Type Badge
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: costTypeColor.withValues(alpha: 0.1),
+                      color: serviceTypeColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: costTypeColor.withValues(alpha: 0.3)),
+                      border: Border.all(color: serviceTypeColor.withValues(alpha: 0.3)),
                     ),
                     child: Text(
-                      cost.costTypeLabel,
+                      stream.serviceTypeLabel,
                       style: TextStyle(
-                        color: costTypeColor,
+                        color: serviceTypeColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Unit Type Badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: unitTypeColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: unitTypeColor.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(
+                      stream.unitTypeLabel,
+                      style: TextStyle(
+                        color: unitTypeColor,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -342,7 +447,7 @@ class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScree
                   const Spacer(),
                   // Amount
                   Text(
-                    cost.formattedAmount,
+                    stream.formattedAmount,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -364,7 +469,7 @@ class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScree
                       children: [
                         // Operation Name
                         Text(
-                          cost.operationName,
+                          stream.operationName,
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -379,7 +484,7 @@ class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScree
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
-                                cost.party,
+                                stream.party,
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Colors.grey.shade700,
@@ -396,7 +501,7 @@ class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScree
                             Icon(Icons.calendar_today, size: 16, color: Colors.grey.shade600),
                             const SizedBox(width: 4),
                             Text(
-                              DateFormat('dd MMM yyyy').format(DateTime.parse(cost.date)),
+                              DateFormat('dd MMM yyyy').format(DateTime.parse(stream.date)),
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey.shade700,
@@ -406,14 +511,14 @@ class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScree
                         ),
                         
                         // Bill Number (if available)
-                        if (cost.billNo != null && cost.billNo!.isNotEmpty) ...[
+                        if (stream.billNo != null && stream.billNo!.isNotEmpty) ...[
                           const SizedBox(height: 4),
                           Row(
                             children: [
                               Icon(Icons.receipt, size: 16, color: Colors.grey.shade600),
                               const SizedBox(width: 4),
                               Text(
-                                'Bill: ${cost.billNo}',
+                                'Bill: ${stream.billNo}',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Colors.grey.shade700,
@@ -432,14 +537,14 @@ class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScree
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        'Qty: ${cost.formattedQuantity}',
+                        'Qty: ${stream.formattedQuantity}',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey.shade600,
                         ),
                       ),
                       Text(
-                        'Rate: ${cost.formattedRate}',
+                        'Rate: ${stream.formattedRate}',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey.shade600,
@@ -451,7 +556,7 @@ class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScree
               ),
               
               // Remarks (if available)
-              if (cost.remarks != null && cost.remarks!.isNotEmpty) ...[
+              if (stream.remarks != null && stream.remarks!.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.all(8),
@@ -465,7 +570,7 @@ class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScree
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          cost.remarks!,
+                          stream.remarks!,
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey.shade600,
@@ -487,7 +592,7 @@ class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScree
                   Icon(Icons.person, size: 14, color: Colors.grey.shade500),
                   const SizedBox(width: 4),
                   Text(
-                    'By ${cost.createdByName ?? 'Unknown'}',
+                    'By ${stream.createdByName ?? 'Unknown'}',
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.grey.shade500,
@@ -497,7 +602,7 @@ class _MiscellaneousListScreenState extends ConsumerState<MiscellaneousListScree
                   Icon(Icons.access_time, size: 14, color: Colors.grey.shade500),
                   const SizedBox(width: 4),
                   Text(
-                    DateFormat('dd/MM/yy HH:mm').format(DateTime.parse(cost.createdAt)),
+                    DateFormat('dd/MM/yy HH:mm').format(DateTime.parse(stream.createdAt)),
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.grey.shade500,

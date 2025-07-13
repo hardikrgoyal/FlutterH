@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../models/equipment_model.dart';
 import '../../../core/services/api_service.dart';
+import '../../../shared/widgets/app_drawer.dart';
 import '../../auth/auth_service.dart';
 
 class EquipmentHistoryScreen extends ConsumerStatefulWidget {
@@ -55,6 +56,7 @@ class _EquipmentHistoryScreenState extends ConsumerState<EquipmentHistoryScreen>
           ),
         ],
       ),
+      drawer: const AppDrawer(),
       body: Column(
         children: [
           _buildSearchAndFilter(),

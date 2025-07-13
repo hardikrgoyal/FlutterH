@@ -8,6 +8,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../shared/models/transport_detail_model.dart';
 import '../../../shared/widgets/loading_widget.dart';
 import '../../../shared/widgets/error_widget.dart';
+import '../../../shared/widgets/app_drawer.dart';
 import '../services/transport_service.dart';
 import '../../auth/auth_service.dart';
 
@@ -135,6 +136,7 @@ class _TransportDetailScreenState extends ConsumerState<TransportDetailScreen> {
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
         ),
+        drawer: const AppDrawer(),
         body: const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -179,6 +181,7 @@ class _TransportDetailScreenState extends ConsumerState<TransportDetailScreen> {
           ],
         ],
       ),
+      drawer: const AppDrawer(),
       body: _isLoading
           ? const LoadingWidget()
           : _transport == null

@@ -9,17 +9,17 @@ from datetime import datetime, timedelta
 from .models import (
     CargoOperation, RateMaster, Equipment, EquipmentRateMaster, TransportDetail, 
     LabourCost, MiscellaneousCost, RevenueStream,
-    VehicleType, WorkType, PartyMaster, ContractorMaster
+    VehicleType, WorkType, PartyMaster, ContractorMaster, ServiceTypeMaster, UnitTypeMaster
 )
 from .serializers import (
     CargoOperationSerializer, RateMasterSerializer, EquipmentSerializer, EquipmentRateMasterSerializer,
     TransportDetailSerializer, LabourCostSerializer, MiscellaneousCostSerializer,
     RevenueStreamSerializer, VehicleTypeSerializer, WorkTypeSerializer, 
-    PartyMasterSerializer, ContractorMasterSerializer
+    PartyMasterSerializer, ContractorMasterSerializer, ServiceTypeMasterSerializer, UnitTypeMasterSerializer
 )
 from authentication.permissions import (
     CanCreateOperations, CanManageEquipment, IsManagerOrAdmin,
-    IsSupervisorOrAbove, IsAccountantOrAdmin, CanAccessLabourCosts
+    IsSupervisorOrAbove, IsAccountantOrAdmin, CanAccessLabourCosts, CanManageRevenue
 )
 
 class CargoOperationViewSet(viewsets.ModelViewSet):
@@ -128,6 +128,44 @@ class ContractorMasterViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         """
         Only managers and admins can create/update/delete contractors
+        """
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes = [IsManagerOrAdmin]
+        else:
+            permission_classes = [IsSupervisorOrAbove]
+        return [permission() for permission in permission_classes]
+
+class ServiceTypeMasterViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing service type master data
+    """
+    queryset = ServiceTypeMaster.objects.filter(is_active=True)
+    serializer_class = ServiceTypeMasterSerializer
+    permission_classes = [IsSupervisorOrAbove]
+    pagination_class = None  # Disable pagination for master data
+    
+    def get_permissions(self):
+        """
+        Supervisors can read, but only managers and admins can create/update/delete
+        """
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes = [IsManagerOrAdmin]
+        else:
+            permission_classes = [IsSupervisorOrAbove]
+        return [permission() for permission in permission_classes]
+
+class UnitTypeMasterViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing unit type master data
+    """
+    queryset = UnitTypeMaster.objects.filter(is_active=True)
+    serializer_class = UnitTypeMasterSerializer
+    permission_classes = [IsSupervisorOrAbove]
+    pagination_class = None  # Disable pagination for master data
+    
+    def get_permissions(self):
+        """
+        Supervisors can read, but only managers and admins can create/update/delete
         """
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             permission_classes = [IsManagerOrAdmin]
@@ -447,7 +485,7 @@ class RevenueStreamViewSet(viewsets.ModelViewSet):
     """
     queryset = RevenueStream.objects.all()
     serializer_class = RevenueStreamSerializer
-    permission_classes = [IsAccountantOrAdmin]
+    permission_classes = [CanManageRevenue]
     
     def get_queryset(self):
         queryset = RevenueStream.objects.all()

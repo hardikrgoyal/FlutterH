@@ -105,6 +105,38 @@ class ContractorMaster(models.Model):
     class Meta:
         ordering = ['name']
 
+class ServiceTypeMaster(models.Model):
+    """
+    Master data for service types used in revenue streams
+    """
+    name = models.CharField(max_length=50, unique=True)
+    code = models.CharField(max_length=20, unique=True)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        ordering = ['name']
+
+class UnitTypeMaster(models.Model):
+    """
+    Master data for unit types used in revenue streams
+    """
+    name = models.CharField(max_length=50, unique=True)
+    code = models.CharField(max_length=20, unique=True)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        ordering = ['name']
+
 class Equipment(models.Model):
     """
     Equipment tracking for hired equipment
@@ -452,32 +484,15 @@ class RevenueStream(models.Model):
     """
     Revenue tracking for operations
     """
-    SERVICE_TYPE_CHOICES = [
-        ('stevedoring', 'Stevedoring'),
-        ('storage', 'Storage'),
-        ('transport', 'Transport'),
-        ('handling', 'Handling'),
-        ('documentation', 'Documentation'),
-        ('others', 'Others'),
-    ]
-    
-    UNIT_TYPE_CHOICES = [
-        ('mt', 'MT'),
-        ('cbm', 'CBM'),
-        ('per_unit', 'Per Unit'),
-        ('lumpsum', 'Lumpsum'),
-        ('daily', 'Daily'),
-        ('monthly', 'Monthly'),
-    ]
-    
     operation = models.ForeignKey(CargoOperation, on_delete=models.CASCADE, related_name='revenue_streams')
     date = models.DateField()
     party = models.CharField(max_length=100)
-    service_type = models.CharField(max_length=20, choices=SERVICE_TYPE_CHOICES)
-    unit_type = models.CharField(max_length=20, choices=UNIT_TYPE_CHOICES)
+    service_type = models.ForeignKey(ServiceTypeMaster, on_delete=models.CASCADE)
+    unit_type = models.ForeignKey(UnitTypeMaster, on_delete=models.CASCADE)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], default=1)
     rate = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    bill_no = models.CharField(max_length=50, blank=True, null=True)
     remarks = models.TextField(blank=True, null=True)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)

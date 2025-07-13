@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import (
     CargoOperation, RateMaster, Equipment, EquipmentRateMaster, TransportDetail, 
     LabourCost, MiscellaneousCost, RevenueStream,
-    VehicleType, WorkType, PartyMaster, ContractorMaster
+    VehicleType, WorkType, PartyMaster, ContractorMaster, ServiceTypeMaster, UnitTypeMaster
 )
 
 @admin.register(CargoOperation)
@@ -44,6 +44,20 @@ class ContractorMasterAdmin(admin.ModelAdmin):
     list_display = ['name', 'is_active', 'created_by', 'created_at']
     list_filter = ['is_active', 'created_at']
     search_fields = ['name']
+    readonly_fields = ['created_by', 'created_at']
+
+@admin.register(ServiceTypeMaster)
+class ServiceTypeMasterAdmin(admin.ModelAdmin):
+    list_display = ['name', 'code', 'is_active', 'created_by', 'created_at']
+    list_filter = ['is_active', 'created_at']
+    search_fields = ['name', 'code']
+    readonly_fields = ['created_by', 'created_at']
+
+@admin.register(UnitTypeMaster)
+class UnitTypeMasterAdmin(admin.ModelAdmin):
+    list_display = ['name', 'code', 'is_active', 'created_by', 'created_at']
+    list_filter = ['is_active', 'created_at']
+    search_fields = ['name', 'code']
     readonly_fields = ['created_by', 'created_at']
 
 @admin.register(Equipment)

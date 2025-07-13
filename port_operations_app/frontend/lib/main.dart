@@ -25,6 +25,9 @@ import 'features/transport/screens/transport_detail_screen.dart';
 import 'features/miscellaneous/screens/miscellaneous_list_screen.dart';
 import 'features/miscellaneous/screens/miscellaneous_form_screen.dart';
 import 'features/miscellaneous/screens/miscellaneous_detail_screen.dart';
+import 'features/revenue/screens/revenue_list_screen.dart';
+import 'features/revenue/screens/revenue_form_screen.dart';
+import 'features/revenue/screens/revenue_detail_screen.dart';
 import 'features/auth/auth_service.dart';
 import 'core/constants/app_theme.dart';
 import 'core/constants/app_constants.dart';
@@ -264,12 +267,28 @@ class PortOperationsApp extends ConsumerWidget {
         GoRoute(
           path: '/revenue',
           name: 'revenue',
-          builder: (context, state) => const _PlaceholderScreen(title: 'Revenue Streams'),
+          builder: (context, state) => const RevenueListScreen(),
         ),
         GoRoute(
-          path: '/revenue/new',
-          name: 'revenue-new',
-          builder: (context, state) => const _PlaceholderScreen(title: 'Revenue Entry'),
+          path: '/revenue/add',
+          name: 'revenue-add',
+          builder: (context, state) => const RevenueFormScreen(),
+        ),
+        GoRoute(
+          path: '/revenue/:id/detail',
+          name: 'revenue-detail',
+          builder: (context, state) {
+            final id = int.parse(state.pathParameters['id']!);
+            return RevenueDetailScreen(streamId: id);
+          },
+        ),
+        GoRoute(
+          path: '/revenue/:id/edit',
+          name: 'revenue-edit',
+          builder: (context, state) {
+            final id = int.parse(state.pathParameters['id']!);
+            return RevenueFormScreen(streamId: id);
+          },
         ),
         GoRoute(
           path: '/tally',

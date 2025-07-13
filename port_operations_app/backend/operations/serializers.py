@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import (
     CargoOperation, RateMaster, Equipment, EquipmentRateMaster, TransportDetail, 
     LabourCost, MiscellaneousCost, RevenueStream,
-    VehicleType, WorkType, PartyMaster, ContractorMaster
+    VehicleType, WorkType, PartyMaster, ContractorMaster, ServiceTypeMaster, UnitTypeMaster
 )
 
 class CargoOperationSerializer(serializers.ModelSerializer):
@@ -58,6 +58,30 @@ class ContractorMasterSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = ContractorMaster
+        fields = '__all__'
+        read_only_fields = ['created_by', 'created_at']
+    
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        return super().create(validated_data)
+
+class ServiceTypeMasterSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    
+    class Meta:
+        model = ServiceTypeMaster
+        fields = '__all__'
+        read_only_fields = ['created_by', 'created_at']
+    
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        return super().create(validated_data)
+
+class UnitTypeMasterSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    
+    class Meta:
+        model = UnitTypeMaster
         fields = '__all__'
         read_only_fields = ['created_by', 'created_at']
     
@@ -211,6 +235,10 @@ class MiscellaneousCostSerializer(serializers.ModelSerializer):
 class RevenueStreamSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source='created_by.username', read_only=True)
     operation_name = serializers.CharField(source='operation.operation_name', read_only=True)
+    service_type_name = serializers.CharField(source='service_type.name', read_only=True)
+    service_type_code = serializers.CharField(source='service_type.code', read_only=True)
+    unit_type_name = serializers.CharField(source='unit_type.name', read_only=True)
+    unit_type_code = serializers.CharField(source='unit_type.code', read_only=True)
     
     class Meta:
         model = RevenueStream
