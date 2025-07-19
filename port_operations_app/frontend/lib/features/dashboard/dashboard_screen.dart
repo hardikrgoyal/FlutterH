@@ -24,6 +24,8 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  final Set<int> _expandedEquipmentCards = <int>{};
+
   @override
   void initState() {
     super.initState();
@@ -294,151 +296,134 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final startTime = DateTime.tryParse(equipment.startTime);
     final duration = startTime != null ? DateTime.now().difference(startTime) : null;
     final contractType = equipment.contractType.toLowerCase();
+    final isExpanded = _expandedEquipmentCards.contains(equipment.id);
     
     return Card(
       elevation: 3,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Top row: Vehicle number with contract type and shift warning
-            Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    equipment.vehicleNumber,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: Colors.black87,
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            if (isExpanded) {
+              _expandedEquipmentCards.remove(equipment.id);
+            } else {
+              _expandedEquipmentCards.add(equipment.id);
+            }
+          });
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header: Vehicle Number with time info
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      equipment.vehicleNumber,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                const SizedBox(width: 8),
-                _buildContractDot(contractType),
-                const SizedBox(width: 4),
-                Text(
-                  contractType.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: _getContractColor(contractType),
-                  ),
-                ),
-                // Add shift time warning here for shift contracts
-                if (contractType == 'shift') ...[
-                  const SizedBox(width: 8),
-                  _buildShiftTimeToEndWarning(equipment),
+                  if (duration != null)
+                    _buildTimeInfo(equipment, contractType, duration),
                 ],
-                const Spacer(),
-                // Time information
-                if (duration != null)
-                  _buildTimeInfo(equipment, contractType, duration),
-              ],
-            ),
-            
-            const SizedBox(height: 8),
-            
-            // Middle row: Operation and Work Type
-            Row(
-              children: [
-                Icon(Icons.business, size: 14, color: Colors.black54),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    equipment.operationName,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.black87,
-                      fontWeight: FontWeight.w500,
+              ),
+              
+              const SizedBox(height: 12),
+              
+              // Status badges and action button
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _getContractColor(contractType),
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(Icons.build, size: 14, color: Colors.black54),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    equipment.workTypeName,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.black87,
-                      fontWeight: FontWeight.w500,
+                    child: Text(
+                      contractType.toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 8),
-            
-            // Bottom row: Party and Started by with stop button
-            Row(
-              children: [
-                Icon(Icons.person, size: 14, color: Colors.black54),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    equipment.partyName,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.black54,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(Icons.account_circle, size: 14, color: Colors.black54),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    equipment.createdByName,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.black54,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const Spacer(),
-                // Stop button
-                if (showStopButton)
-                  SizedBox(
-                    width: 70,
-                    height: 32,
-                    child: ElevatedButton(
+                  if (contractType == 'shift') ...[
+                    const SizedBox(width: 8),
+                    _buildShiftTimeToEndWarning(equipment),
+                  ],
+                  const Spacer(),
+                  if (showStopButton)
+                    ElevatedButton(
                       onPressed: () => _showStopEquipmentDialog(context, ref, equipment),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.error,
                         foregroundColor: Colors.white,
-                        padding: EdgeInsets.zero,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(20),
                         ),
                         elevation: 2,
                       ),
                       child: const Text(
-                        'STOP',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        'Stop',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                       ),
                     ),
+                ],
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // Equipment details in two columns
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Left column: Operation and Work Type
+                  Expanded(
+                    child: Column(
+                      children: [
+                        _buildInfoRow(Icons.business, equipment.operationName, AppColors.primary),
+                        const SizedBox(height: 8),
+                        _buildInfoRow(Icons.build, equipment.workTypeName, AppColors.secondary),
+                      ],
+                    ),
                   ),
-              ],
-            ),
+                  const SizedBox(width: 16),
+                  // Right column: Party and Started by
+                  Expanded(
+                    child: Column(
+                      children: [
+                        _buildInfoRow(Icons.person, equipment.partyName, Colors.grey[600]!),
+                        const SizedBox(height: 8),
+                        _buildInfoRow(Icons.account_circle, equipment.createdByName, Colors.grey[500]!),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            
+            // Expanded details section
+            if (isExpanded) ...[
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 16),
+              _buildEquipmentDetails(context, equipment),
+            ],
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -558,6 +543,71 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         );
     }
+  }
+
+
+
+  Widget _buildInfoRow(IconData icon, String text, Color color) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.black87,
+              fontWeight: FontWeight.w500,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVehicleNumberWidget(BuildContext context, String vehicleNumber) {
+    final textStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
+      fontWeight: FontWeight.bold,
+      fontSize: 16, // Slightly smaller to fit better
+      color: Colors.black87,
+    );
+
+    // Show the full vehicle number without dots
+    return Tooltip(
+      message: vehicleNumber,
+      child: Text(
+        vehicleNumber,
+        style: textStyle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis, // Changed back to ellipsis for better readability
+      ),
+    );
+  }
+
+  Widget _buildEquipmentDetails(BuildContext context, Equipment equipment) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Equipment Details',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _buildDetailRow('Work Type', equipment.workTypeName, Icons.build),
+        _buildDetailRow('Party', equipment.partyName, Icons.business),
+        _buildDetailRow('Contract', equipment.contractType.toUpperCase(), Icons.assignment),
+        _buildDetailRow('Started', equipment.formattedStartTime, Icons.access_time),
+        _buildDetailRow('Started By', equipment.createdByName, Icons.person),
+        
+        const SizedBox(height: 12),
+        _buildContractSpecificInfo(equipment),
+      ],
+    );
   }
 
 
