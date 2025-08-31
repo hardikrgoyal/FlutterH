@@ -27,16 +27,22 @@ sudo apt install -y nginx postgresql postgresql-contrib python3-pip python3-venv
 
 # Install Flutter
 echo -e "${YELLOW}📱 Installing Flutter...${NC}"
-if [ ! -d "/opt/flutter" ]; then
+if ! command -v flutter &> /dev/null; then
     sudo snap install flutter --classic
     echo 'export PATH="$PATH:/snap/flutter/current/bin"' >> ~/.bashrc
     source ~/.bashrc
+else
+    echo "Flutter already installed"
 fi
 
 # Install Node.js for web build tools
 echo -e "${YELLOW}📦 Installing Node.js...${NC}"
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt-get install -y nodejs
+if ! command -v node &> /dev/null; then
+    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+else
+    echo "Node.js already installed"
+fi
 
 # Create app directory
 echo -e "${YELLOW}📁 Creating application directory...${NC}"
@@ -61,12 +67,24 @@ sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE port_operations_db TO
 # Setup Python virtual environment
 echo -e "${YELLOW}🐍 Setting up Python environment...${NC}"
 cd $BACKEND_DIR
+
+# Remove existing venv if it exists
+if [ -d "venv" ]; then
+    rm -rf venv
+fi
+
 python3 -m venv venv
 source venv/bin/activate
+pip install --upgrade pip
 pip install -r requirements.txt
 
 # Copy production environment file
-cp ../../production.env .env
+if [ -f "../../production.env" ]; then
+    cp ../../production.env .env
+else
+    echo -e "${RED}Error: production.env file not found${NC}"
+    exit 1
+fi
 
 # Generate Django secret key
 echo -e "${YELLOW}🔐 Generating Django secret key...${NC}"
@@ -82,13 +100,18 @@ python manage.py migrate
 echo -e "${YELLOW}👤 Creating Django superuser...${NC}"
 echo "from authentication.models import User; User.objects.filter(email='admin@globalseatrans.com').exists() or User.objects.create_superuser('admin@globalseatrans.com', 'admin123')" | python manage.py shell
 
+# Install Gunicorn
+pip install gunicorn
+
 # Build Flutter web app
 echo -e "${YELLOW}🌐 Building Flutter web application...${NC}"
 cd $FRONTEND_DIR
 
-# Update API base URL for production
-sed -i "s|http://10.0.2.2:8001/api|https://$DOMAIN/api|g" lib/core/constants/app_constants.dart
+# Update API base URL for production - use a more specific replacement
+sed -i "s|static const String devBaseUrl = 'http://10.0.2.2:8001/api';|static const String devBaseUrl = 'https://$DOMAIN/api';|g" lib/core/constants/app_constants.dart
 
+# Ensure Flutter is in PATH
+export PATH="$PATH:/snap/flutter/current/bin"
 flutter pub get
 flutter build web --release
 
@@ -111,11 +134,6 @@ Restart=always
 WantedBy=multi-user.target
 EOF
 
-# Install Gunicorn
-cd $BACKEND_DIR
-source venv/bin/activate
-pip install gunicorn
-
 # Create Nginx configuration
 echo -e "${YELLOW}🌐 Creating Nginx configuration...${NC}"
 sudo tee $NGINX_AVAILABLE/port-operations > /dev/null <<EOF
@@ -123,21 +141,7 @@ server {
     listen 80;
     server_name $DOMAIN;
 
-    # Redirect HTTP to HTTPS
-    return 301 https://\$server_name\$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name $DOMAIN;
-
-    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
-    
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384;
-    ssl_prefer_server_ciphers off;
-
+    # For now, serve HTTP until SSL is configured
     client_max_body_size 100M;
 
     # Serve Flutter web app
@@ -186,16 +190,6 @@ EOF
 sudo ln -sf $NGINX_AVAILABLE/port-operations $NGINX_ENABLED/
 sudo rm -f $NGINX_ENABLED/default
 
-# Install Certbot for SSL
-echo -e "${YELLOW}🔒 Installing Certbot for SSL...${NC}"
-sudo snap install core; sudo snap refresh core
-sudo snap install --classic certbot
-sudo ln -sf /snap/bin/certbot /usr/bin/certbot
-
-# Get SSL certificate
-echo -e "${YELLOW}🔒 Obtaining SSL certificate...${NC}"
-sudo certbot certonly --nginx -d $DOMAIN --non-interactive --agree-tos --email admin@globalseatrans.com || echo "SSL certificate already exists or failed to obtain"
-
 # Start and enable services
 echo -e "${YELLOW}🚀 Starting services...${NC}"
 sudo systemctl daemon-reload
@@ -204,14 +198,21 @@ sudo systemctl start port-operations
 sudo systemctl enable nginx
 sudo systemctl restart nginx
 
-# Create auto-renewal cron job for SSL
-echo -e "${YELLOW}🔄 Setting up SSL auto-renewal...${NC}"
-echo "0 12 * * * /usr/bin/certbot renew --quiet" | sudo crontab -
+# Install Certbot for SSL (skip for now to get basic setup working)
+echo -e "${YELLOW}🔒 Installing Certbot for SSL...${NC}"
+sudo snap install core; sudo snap refresh core
+sudo snap install --classic certbot
+sudo ln -sf /snap/bin/certbot /usr/bin/certbot
 
-echo -e "${GREEN}✅ Deployment completed successfully!${NC}"
-echo -e "${GREEN}🌐 Your app should now be available at: https://$DOMAIN${NC}"
-echo -e "${GREEN}🔧 Django admin: https://$DOMAIN/admin${NC}"
-echo -e "${GREEN}📱 API endpoints: https://$DOMAIN/api${NC}"
+echo -e "${GREEN}✅ Basic deployment completed successfully!${NC}"
+echo -e "${GREEN}🌐 Your app should now be available at: http://$DOMAIN${NC}"
+echo -e "${GREEN}🔧 Django admin: http://$DOMAIN/admin${NC}"
+echo -e "${GREEN}📱 API endpoints: http://$DOMAIN/api${NC}"
+echo ""
+echo -e "${YELLOW}📋 Next steps:${NC}"
+echo -e "  1. Test the app at http://$DOMAIN"
+echo -e "  2. If working, run: sudo certbot --nginx -d $DOMAIN"
+echo -e "  3. Update Nginx config to redirect HTTP to HTTPS"
 echo ""
 echo -e "${YELLOW}📋 Useful commands:${NC}"
 echo -e "  View backend logs: sudo journalctl -u port-operations -f"
