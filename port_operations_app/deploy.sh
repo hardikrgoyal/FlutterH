@@ -79,11 +79,27 @@ pip install --upgrade pip
 pip install -r requirements.txt
 
 # Copy production environment file
-if [ -f "../../production.env" ]; then
-    cp ../../production.env .env
+if [ -f "$APP_DIR/port_operations_app/production.env" ]; then
+    cp $APP_DIR/port_operations_app/production.env .env
 else
-    echo -e "${RED}Error: production.env file not found${NC}"
-    exit 1
+    echo -e "${RED}Error: production.env file not found at $APP_DIR/port_operations_app/production.env${NC}"
+    echo -e "${YELLOW}Creating basic .env file...${NC}"
+    cat > .env << EOF
+SECRET_KEY=your-super-secret-production-key-change-this
+DEBUG=False
+ALLOWED_HOSTS=app.globalseatrans.com,34.93.231.230,localhost,127.0.0.1
+
+# Database Configuration for PostgreSQL
+DATABASE_ENGINE=django.db.backends.postgresql
+DATABASE_NAME=port_operations_db
+DATABASE_USER=port_user
+DATABASE_PASSWORD=secure_db_password_123
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+
+# CORS Settings for production
+CORS_ALLOWED_ORIGINS=https://app.globalseatrans.com,http://app.globalseatrans.com
+EOF
 fi
 
 # Generate Django secret key
