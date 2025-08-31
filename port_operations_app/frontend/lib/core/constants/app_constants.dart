@@ -1,9 +1,16 @@
 class AppConstants {
   // API Configuration
+  // Environment detection - check if running in web release mode
+  static const bool kIsProduction = bool.fromEnvironment('dart.vm.product');
+  
+  // Production API URL
+  static const String productionBaseUrl = 'https://app.globalseatrans.com/api';
+  
+  // Development API URLs
   // For Android Emulator: use 10.0.2.2
   // For iOS Simulator: use 127.0.0.1 or localhost  
   // For Physical Device: use your computer's IP address
-  static const String baseUrl = 'http://10.0.2.2:8001/api';
+  static const String devBaseUrl = 'http://10.0.2.2:8001/api';
   
   // Alternative base URLs for different environments
   static const String iOSSimulatorBaseUrl = 'http://127.0.0.1:8001/api';
@@ -12,9 +19,14 @@ class AppConstants {
   // For physical device, uncomment and replace with your computer's IP
   // static const String physicalDeviceBaseUrl = 'http://192.168.1.xxx:8001/api';
   
-  static const String authBaseUrl = '$baseUrl/auth';
-  static const String operationsBaseUrl = '$baseUrl/operations';
-  static const String financialBaseUrl = '$baseUrl/financial';
+  // Dynamic base URL selection
+  static String get baseUrl {
+    return kIsProduction ? productionBaseUrl : devBaseUrl;
+  }
+  
+  static String get authBaseUrl => '$baseUrl/auth';
+  static String get operationsBaseUrl => '$baseUrl/operations';
+  static String get financialBaseUrl => '$baseUrl/financial';
   
   // Storage Keys
   static const String accessTokenKey = 'access_token';
