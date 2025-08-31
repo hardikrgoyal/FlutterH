@@ -9,12 +9,9 @@ class OperationsService {
   OperationsService(this._apiService);
 
   /// Get list of all cargo operations
-  Future<List<CargoOperation>> getOperations({String? status, String? cargoType}) async {
+  Future<List<CargoOperation>> getOperations({String? cargoType}) async {
     try {
       final queryParams = <String, dynamic>{};
-      if (status != null && status != 'all') {
-        queryParams['status'] = status;
-      }
       if (cargoType != null && cargoType != 'all') {
         queryParams['cargo_type'] = cargoType;
       }
@@ -98,9 +95,6 @@ class OperationsService {
       
       return {
         'total': operations.length,
-        'pending': operations.where((op) => op.projectStatus == 'pending').length,
-        'ongoing': operations.where((op) => op.projectStatus == 'ongoing').length,
-        'completed': operations.where((op) => op.projectStatus == 'completed').length,
       };
     } catch (e) {
       throw Exception('Failed to fetch operations stats: ${e.toString()}');
@@ -113,7 +107,6 @@ class OperationsManagementState {
   final List<CargoOperation> operations;
   final bool isLoading;
   final String? error;
-  final String selectedStatus;
   final String selectedCargoType;
   final String searchQuery;
 
@@ -121,7 +114,6 @@ class OperationsManagementState {
     this.operations = const [],
     this.isLoading = false,
     this.error,
-    this.selectedStatus = 'all',
     this.selectedCargoType = 'all',
     this.searchQuery = '',
   });
@@ -130,7 +122,6 @@ class OperationsManagementState {
     List<CargoOperation>? operations,
     bool? isLoading,
     String? error,
-    String? selectedStatus,
     String? selectedCargoType,
     String? searchQuery,
   }) {
@@ -138,20 +129,14 @@ class OperationsManagementState {
       operations: operations ?? this.operations,
       isLoading: isLoading ?? this.isLoading,
       error: error,
-      selectedStatus: selectedStatus ?? this.selectedStatus,
       selectedCargoType: selectedCargoType ?? this.selectedCargoType,
       searchQuery: searchQuery ?? this.searchQuery,
     );
   }
 
-  /// Filter operations based on search query, status, and cargo type
+  /// Filter operations based on search query and cargo type
   List<CargoOperation> get filteredOperations {
     var filtered = operations;
-
-    // Filter by status
-    if (selectedStatus != 'all') {
-      filtered = filtered.where((op) => op.projectStatus == selectedStatus).toList();
-    }
 
     // Filter by cargo type
     if (selectedCargoType != 'all') {
@@ -164,11 +149,9 @@ class OperationsManagementState {
       filtered = filtered.where((op) {
         final operationName = op.operationName.toLowerCase();
         final partyName = op.partyName.toLowerCase();
-        final packaging = op.packaging.toLowerCase();
         
         return operationName.contains(query) || 
-               partyName.contains(query) || 
-               packaging.contains(query);
+               partyName.contains(query);
       }).toList();
     }
 
@@ -179,9 +162,6 @@ class OperationsManagementState {
   Map<String, int> get operationsStats {
     return {
       'total': operations.length,
-      'pending': operations.where((op) => op.projectStatus == 'pending').length,
-      'ongoing': operations.where((op) => op.projectStatus == 'ongoing').length,
-      'completed': operations.where((op) => op.projectStatus == 'completed').length,
       'filtered': filteredOperations.length,
     };
   }
@@ -201,7 +181,6 @@ class OperationsManagementNotifier extends StateNotifier<OperationsManagementSta
     
     try {
       final operations = await _operationsService.getOperations(
-        status: state.selectedStatus != 'all' ? state.selectedStatus : null,
         cargoType: state.selectedCargoType != 'all' ? state.selectedCargoType : null,
       );
       state = state.copyWith(
@@ -267,12 +246,6 @@ class OperationsManagementNotifier extends StateNotifier<OperationsManagementSta
   /// Update search query
   void updateSearchQuery(String query) {
     state = state.copyWith(searchQuery: query);
-  }
-
-  /// Update status filter
-  void updateStatusFilter(String status) {
-    state = state.copyWith(selectedStatus: status);
-    loadOperations(); // Reload operations with new filter
   }
 
   /// Update cargo type filter

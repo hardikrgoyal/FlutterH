@@ -16,7 +16,7 @@ class OperationsScreen extends ConsumerStatefulWidget {
 }
 
 class _OperationsScreenState extends ConsumerState<OperationsScreen> {
-  final List<String> _filters = ['all', 'pending', 'ongoing', 'completed'];
+  final List<String> _cargoTypeFilters = ['all', 'paper_bales', 'raw_salt', 'coal', 'silica'];
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -64,8 +64,8 @@ class _OperationsScreenState extends ConsumerState<OperationsScreen> {
         onRefresh: () => ref.read(operationsManagementProvider.notifier).refreshOperations(),
         child: Column(
           children: [
-            _buildStatusCards(operationsState.operationsStats),
-            _buildFilterChips(operationsState.selectedStatus),
+            _buildStatisticsCard(operationsState.operationsStats),
+            _buildCargoTypeFilterChips(operationsState.selectedCargoType),
             Expanded(
               child: _buildOperationsList(operationsState),
             ),
@@ -75,14 +75,14 @@ class _OperationsScreenState extends ConsumerState<OperationsScreen> {
     );
   }
 
-  Widget _buildStatusCards(Map<String, int> stats) {
+  Widget _buildStatisticsCard(Map<String, int> stats) {
     return Container(
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
           Expanded(
-            child: _buildStatusCard(
-              'Total',
+            child: _buildStatCard(
+              'Total Operations',
               '${stats['total'] ?? 0}',
               AppColors.primary,
               MdiIcons.shipWheel,
@@ -90,29 +90,11 @@ class _OperationsScreenState extends ConsumerState<OperationsScreen> {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: _buildStatusCard(
-              'Pending',
-              '${stats['pending'] ?? 0}',
-              AppColors.warning,
-              Icons.pending,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildStatusCard(
-              'Ongoing',
-              '${stats['ongoing'] ?? 0}',
+            child: _buildStatCard(
+              'Filtered',
+              '${stats['filtered'] ?? 0}',
               AppColors.info,
-              Icons.play_circle,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildStatusCard(
-              'Completed',
-              '${stats['completed'] ?? 0}',
-              AppColors.success,
-              Icons.check_circle,
+              Icons.filter_list,
             ),
           ),
         ],
@@ -120,7 +102,7 @@ class _OperationsScreenState extends ConsumerState<OperationsScreen> {
     );
   }
 
-  Widget _buildStatusCard(String title, String count, Color color, IconData icon) {
+  Widget _buildStatCard(String title, String count, Color color, IconData icon) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -145,28 +127,45 @@ class _OperationsScreenState extends ConsumerState<OperationsScreen> {
     );
   }
 
-  Widget _buildFilterChips(String selectedFilter) {
+  Widget _buildCargoTypeFilterChips(String selectedFilter) {
     return Container(
       height: 60,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: _filters.length,
+        itemCount: _cargoTypeFilters.length,
         separatorBuilder: (context, index) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          final filter = _filters[index];
+          final filter = _cargoTypeFilters[index];
           final isSelected = selectedFilter == filter;
           
           return FilterChip(
-            label: Text(filter.toUpperCase()),
+            label: Text(_getFilterDisplayName(filter)),
             selected: isSelected,
             onSelected: (selected) {
-              ref.read(operationsManagementProvider.notifier).updateStatusFilter(filter);
+              ref.read(operationsManagementProvider.notifier).updateCargoTypeFilter(filter);
             },
           );
         },
       ),
     );
+  }
+
+  String _getFilterDisplayName(String filter) {
+    switch (filter) {
+      case 'all':
+        return 'ALL';
+      case 'paper_bales':
+        return 'PAPER BALES';
+      case 'raw_salt':
+        return 'RAW SALT';
+      case 'coal':
+        return 'COAL';
+      case 'silica':
+        return 'SILICA';
+      default:
+        return filter.toUpperCase();
+    }
   }
 
   Widget _buildOperationsList(OperationsManagementState state) {
@@ -256,9 +255,6 @@ class _OperationsScreenState extends ConsumerState<OperationsScreen> {
   }
 
   Widget _buildOperationCard(CargoOperation operation) {
-    final status = operation.projectStatus;
-    final statusColor = _getStatusColor(status);
-
     return Card(
       child: InkWell(
         onTap: () {
@@ -297,14 +293,14 @@ class _OperationsScreenState extends ConsumerState<OperationsScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: 0.1),
+                      color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                     ),
                     child: Text(
-                      operation.displayStatus.toUpperCase(),
+                      operation.displayCargoType.toUpperCase(),
                       style: TextStyle(
-                        color: statusColor,
+                        color: AppColors.primary,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -342,21 +338,6 @@ class _OperationsScreenState extends ConsumerState<OperationsScreen> {
               Row(
                 children: [
                   Icon(
-                    Icons.inventory,
-                    size: 16,
-                    color: AppColors.textSecondary,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    operation.packaging,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(
                     Icons.schedule,
                     size: 16,
                     color: AppColors.textSecondary,
@@ -379,18 +360,28 @@ class _OperationsScreenState extends ConsumerState<OperationsScreen> {
               if (operation.remarks != null && operation.remarks!.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Container(
-                  width: double.infinity,
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.background,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppColors.borderLight),
+                    color: AppColors.grey100,
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Text(
-                    operation.remarks!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontStyle: FontStyle.italic,
-                    ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.note,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          operation.remarks!,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -401,21 +392,16 @@ class _OperationsScreenState extends ConsumerState<OperationsScreen> {
     );
   }
 
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'pending':
-        return AppColors.warning;
-      case 'ongoing':
-        return AppColors.info;
-      case 'completed':
-        return AppColors.success;
-      default:
-        return AppColors.textSecondary;
-    }
-  }
-
   IconData _getCargoIcon(String cargoType) {
     switch (cargoType) {
+      case 'paper_bales':
+        return MdiIcons.packageVariant;
+      case 'raw_salt':
+        return MdiIcons.shaker;
+      case 'coal':
+        return MdiIcons.fire;
+      case 'silica':
+        return MdiIcons.grain;
       case 'container':
         return MdiIcons.cube;
       case 'bulk':

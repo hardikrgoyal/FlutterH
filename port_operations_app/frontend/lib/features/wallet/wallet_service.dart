@@ -1,11 +1,27 @@
 import 'package:dio/dio.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter/foundation.dart';
 import '../../core/services/api_service.dart';
-import '../../shared/models/user_model.dart';
 
 class WalletService {
   final ApiService _apiService;
 
   WalletService(this._apiService);
+
+  // Helper method to create cross-platform MultipartFile
+  Future<MultipartFile> _createMultipartFile(XFile file) async {
+    if (kIsWeb) {
+      // Web platform: use bytes
+      final bytes = await file.readAsBytes();
+      return MultipartFile.fromBytes(
+        bytes,
+        filename: file.name,
+      );
+    } else {
+      // Mobile platforms: use file path
+      return await MultipartFile.fromFile(file.path, filename: file.name);
+    }
+  }
 
   // Get wallet balance
   Future<WalletBalance> getWalletBalance() async {
@@ -94,10 +110,10 @@ class WalletService {
     double? customsAmount,
     int? roadTaxDays,
     double? otherCharges,
-    String? photoPath,
+    XFile? photoFile,
   }) async {
     try {
-      FormData formData = FormData.fromMap({
+      final Map<String, dynamic> formDataMap = {
         'date_time': dateTime.toIso8601String(),
         'vehicle': vehicle,
         'vehicle_number': vehicleNumber,
@@ -108,9 +124,13 @@ class WalletService {
         if (customsAmount != null) 'customs_amount': customsAmount,
         if (roadTaxDays != null) 'road_tax_days': roadTaxDays,
         if (otherCharges != null) 'other_charges': otherCharges,
-        if (photoPath != null) 'photo': await MultipartFile.fromFile(photoPath),
-      });
+      };
 
+      if (photoFile != null) {
+        formDataMap['photo'] = await _createMultipartFile(photoFile);
+      }
+
+      final formData = FormData.fromMap(formDataMap);
       await _apiService.post('/financial/port-expenses/', data: formData);
     } catch (e) {
       throw Exception('Failed to create port expense: $e');
@@ -122,15 +142,15 @@ class WalletService {
     required DateTime dateTime,
     required String expenseCategory,
     required double amount,
-    required String billPhotoPath,
+    required XFile billPhotoFile,
     String? remarks,
   }) async {
     try {
-      FormData formData = FormData.fromMap({
+      final formData = FormData.fromMap({
         'date_time': dateTime.toIso8601String(),
         'expense_category': expenseCategory,
         'amount': amount,
-        'bill_photo': await MultipartFile.fromFile(billPhotoPath),
+        'bill_photo': await _createMultipartFile(billPhotoFile),
         if (remarks != null) 'remarks': remarks,
       });
 

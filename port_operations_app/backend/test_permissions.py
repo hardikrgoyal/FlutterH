@@ -89,11 +89,9 @@ def test_supervisor_permissions():
     new_operation = {
         'operation_name': 'TEST-SUPERVISOR-001',
         'date': '2025-05-25',
-        'cargo_type': 'breakbulk',
+        'cargo_type': 'paper_bales',
         'weight': '100.00',
-        'packaging': 'Test Package',
-        'party_name': 'Test Party',
-        'project_status': 'pending'
+        'party_name': 'Test Party'
     }
     
     create_response = requests.post(

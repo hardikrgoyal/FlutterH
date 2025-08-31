@@ -18,6 +18,10 @@ class CargoOperation(models.Model):
     ]
     
     CARGO_TYPE_CHOICES = [
+        ('paper_bales', 'Paper Bales'),
+        ('raw_salt', 'Raw Salt'),
+        ('coal', 'Coal'),
+        ('silica', 'Silica'),
         ('breakbulk', 'Breakbulk'),
         ('container', 'Container'),
         ('bulk', 'Bulk'),
@@ -27,11 +31,9 @@ class CargoOperation(models.Model):
     
     operation_name = models.CharField(max_length=100, unique=True)
     date = models.DateField()
-    cargo_type = models.CharField(max_length=20, choices=CARGO_TYPE_CHOICES)
+    cargo_type = models.CharField(max_length=50, choices=CARGO_TYPE_CHOICES)
     weight = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
-    packaging = models.CharField(max_length=100)
     party_name = models.CharField(max_length=100)
-    project_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     remarks = models.TextField(blank=True, null=True)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_operations')
     created_at = models.DateTimeField(auto_now_add=True)

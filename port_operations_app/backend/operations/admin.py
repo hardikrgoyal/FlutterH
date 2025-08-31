@@ -7,9 +7,9 @@ from .models import (
 
 @admin.register(CargoOperation)
 class CargoOperationAdmin(admin.ModelAdmin):
-    list_display = ['operation_name', 'party_name', 'cargo_type', 'weight', 'project_status', 'date', 'created_by']
-    list_filter = ['project_status', 'cargo_type', 'date', 'created_at']
-    search_fields = ['operation_name', 'party_name', 'packaging']
+    list_display = ['operation_name', 'party_name', 'cargo_type', 'weight', 'date', 'created_by']
+    list_filter = ['cargo_type', 'date', 'created_at']
+    search_fields = ['operation_name', 'party_name']
     readonly_fields = ['created_at', 'updated_at']
     date_hierarchy = 'date'
 

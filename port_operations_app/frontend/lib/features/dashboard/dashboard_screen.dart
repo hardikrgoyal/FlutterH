@@ -1170,22 +1170,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   AppColors.primary,
                 ),
                 _buildStatCard(
-                  'Ongoing',
-                  '${stats['ongoing']}',
-                  Icons.play_circle,
-                  AppColors.warning,
-                ),
-                _buildStatCard(
-                  'Pending',
-                  '${stats['pending']}',
-                  Icons.pending,
+                  'Filtered',
+                  '${stats['filtered']}',
+                  Icons.filter_list,
                   AppColors.info,
-                ),
-                _buildStatCard(
-                  'Completed',
-                  '${stats['completed']}',
-                  Icons.check_circle,
-                  AppColors.success,
                 ),
               ],
             );
@@ -1413,24 +1401,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: _getStatusColor(operation.projectStatus).withValues(alpha: 0.1),
+          backgroundColor: AppColors.primary.withValues(alpha: 0.1),
           child: Icon(
-            _getStatusIcon(operation.projectStatus),
-            color: _getStatusColor(operation.projectStatus),
+            _getCargoIcon(operation.cargoType),
+            color: AppColors.primary,
           ),
         ),
         title: Text(operation.operationName),
-        subtitle: Text('${operation.partyName} • ${operation.cargoType}'),
+        subtitle: Text('${operation.partyName} • ${operation.displayCargoType}'),
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: _getStatusColor(operation.projectStatus).withValues(alpha: 0.1),
+            color: AppColors.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
-            operation.projectStatus.toUpperCase(),
+            operation.displayCargoType.toUpperCase(),
             style: TextStyle(
-              color: _getStatusColor(operation.projectStatus),
+              color: AppColors.primary,
               fontSize: 10,
               fontWeight: FontWeight.bold,
             ),
@@ -2050,6 +2038,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         return Icons.account_balance;
       default:
         return Icons.person;
+    }
+  }
+
+  IconData _getCargoIcon(String cargoType) {
+    switch (cargoType) {
+      case 'paper_bales':
+        return Icons.inventory_2;
+      case 'raw_salt':
+        return Icons.grain;
+      case 'coal':
+        return Icons.local_fire_department;
+      case 'silica':
+        return Icons.scatter_plot;
+      case 'container':
+        return Icons.inventory;
+      case 'bulk':
+        return Icons.grain;
+      case 'breakbulk':
+        return Icons.inventory_2;
+      case 'project':
+        return Icons.construction;
+      case 'others':
+        return Icons.category;
+      default:
+        return Icons.business;
     }
   }
 

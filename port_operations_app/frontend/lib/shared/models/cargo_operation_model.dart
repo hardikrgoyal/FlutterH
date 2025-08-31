@@ -11,11 +11,8 @@ class CargoOperation {
   @JsonKey(name: 'cargo_type')
   final String cargoType;
   final String weight;
-  final String packaging;
   @JsonKey(name: 'party_name')
   final String partyName;
-  @JsonKey(name: 'project_status')
-  final String projectStatus;
   final String? remarks;
   @JsonKey(name: 'created_by')
   final int createdBy;
@@ -32,9 +29,7 @@ class CargoOperation {
     required this.date,
     required this.cargoType,
     required this.weight,
-    required this.packaging,
     required this.partyName,
-    required this.projectStatus,
     this.remarks,
     required this.createdBy,
     this.createdByName,
@@ -46,11 +41,19 @@ class CargoOperation {
   Map<String, dynamic> toJson() => _$CargoOperationToJson(this);
 
   String get displayTitle {
-    return '$cargoType Operation - $operationName';
+    return '$displayCargoType Operation - $operationName';
   }
 
   String get displayCargoType {
     switch (cargoType) {
+      case 'paper_bales':
+        return 'Paper Bales';
+      case 'raw_salt':
+        return 'Raw Salt';
+      case 'coal':
+        return 'Coal';
+      case 'silica':
+        return 'Silica';
       case 'breakbulk':
         return 'Breakbulk';
       case 'container':
@@ -62,20 +65,9 @@ class CargoOperation {
       case 'others':
         return 'Others';
       default:
-        return cargoType;
-    }
-  }
-
-  String get displayStatus {
-    switch (projectStatus) {
-      case 'pending':
-        return 'Pending';
-      case 'ongoing':
-        return 'Ongoing';
-      case 'completed':
-        return 'Completed';
-      default:
-        return projectStatus;
+        // Convert underscore format to title case
+        return cargoType.split('_').map((word) => 
+          word.substring(0, 1).toUpperCase() + word.substring(1)).join(' ');
     }
   }
 
@@ -103,9 +95,7 @@ class CargoOperation {
     String? date,
     String? cargoType,
     String? weight,
-    String? packaging,
     String? partyName,
-    String? projectStatus,
     String? remarks,
     int? createdBy,
     String? createdByName,
@@ -118,9 +108,7 @@ class CargoOperation {
       date: date ?? this.date,
       cargoType: cargoType ?? this.cargoType,
       weight: weight ?? this.weight,
-      packaging: packaging ?? this.packaging,
       partyName: partyName ?? this.partyName,
-      projectStatus: projectStatus ?? this.projectStatus,
       remarks: remarks ?? this.remarks,
       createdBy: createdBy ?? this.createdBy,
       createdByName: createdByName ?? this.createdByName,
@@ -139,6 +127,6 @@ class CargoOperation {
 
   @override
   String toString() {
-    return 'CargoOperation{id: $id, operationName: $operationName, cargoType: $cargoType, status: $projectStatus}';
+    return 'CargoOperation{id: $id, operationName: $operationName, cargoType: $cargoType}';
   }
 } 

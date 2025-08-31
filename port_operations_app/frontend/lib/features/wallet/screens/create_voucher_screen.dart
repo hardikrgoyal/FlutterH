@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import '../../../core/constants/app_colors.dart';
-import '../wallet_service.dart';
 import '../wallet_provider.dart';
 
 class CreateVoucherScreen extends ConsumerStatefulWidget {
@@ -21,7 +21,8 @@ class _CreateVoucherScreenState extends ConsumerState<CreateVoucherScreen> {
 
   String _selectedCategory = 'fuel';
   DateTime _selectedDateTime = DateTime.now();
-  File? _selectedImage;
+  XFile? _selectedImage;
+  Uint8List? _imageBytes;
   bool _isLoading = false;
 
   final List<Map<String, String>> _categoryOptions = [
@@ -237,8 +238,8 @@ class _CreateVoucherScreenState extends ConsumerState<CreateVoucherScreen> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.file(
-                _selectedImage!,
+              child: Image.memory(
+                _imageBytes!,
                 fit: BoxFit.cover,
               ),
             ),
@@ -339,8 +340,10 @@ class _CreateVoucherScreenState extends ConsumerState<CreateVoucherScreen> {
     );
 
     if (pickedFile != null) {
+      final bytes = await pickedFile.readAsBytes();
       setState(() {
-        _selectedImage = File(pickedFile.path);
+        _selectedImage = pickedFile;
+        _imageBytes = bytes;
       });
     }
   }
@@ -369,7 +372,7 @@ class _CreateVoucherScreenState extends ConsumerState<CreateVoucherScreen> {
         dateTime: _selectedDateTime,
         expenseCategory: _selectedCategory,
         amount: double.parse(_amountController.text),
-        billPhotoPath: _selectedImage!.path,
+        billPhotoFile: _selectedImage!,
         remarks: _remarksController.text.isNotEmpty ? _remarksController.text : null,
       );
 

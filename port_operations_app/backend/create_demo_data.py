@@ -137,54 +137,44 @@ def create_demo_operations(manager):
     
     operations_data = [
         {
-            'operation_name': 'BREAKBULK-001',
+            'operation_name': 'PAPERBALES-001',
             'date': date.today(),
-            'cargo_type': 'breakbulk',
+            'cargo_type': 'paper_bales',
             'weight': Decimal('500.00'),
-            'packaging': 'Steel Coils',
-            'party_name': 'ABC Steel Industries',
-            'project_status': 'ongoing',
+            'party_name': 'Arya Translogistics',
             'remarks': 'Urgent delivery required'
         },
         {
-            'operation_name': 'CONTAINER-002',
+            'operation_name': 'RAWSALT-002',
             'date': date.today() - timedelta(days=1),
-            'cargo_type': 'container',
+            'cargo_type': 'raw_salt',
             'weight': Decimal('1200.00'),
-            'packaging': '20ft Container',
-            'party_name': 'XYZ Logistics',
-            'project_status': 'pending',
-            'remarks': 'Awaiting customs clearance'
+            'party_name': 'Jeel Kandla',
+            'remarks': 'Export grade salt'
         },
         {
-            'operation_name': 'PROJECT-003',
+            'operation_name': 'COAL-003',
             'date': date.today() - timedelta(days=2),
-            'cargo_type': 'project',
+            'cargo_type': 'coal',
             'weight': Decimal('2500.00'),
-            'packaging': 'Heavy Machinery',
             'party_name': 'Industrial Corp',
-            'project_status': 'completed',
-            'remarks': 'Successfully completed'
+            'remarks': 'High grade coal shipment'
         },
         {
-            'operation_name': 'BULK-004',
+            'operation_name': 'SILICA-004',
             'date': date.today(),
-            'cargo_type': 'bulk',
+            'cargo_type': 'silica',
             'weight': Decimal('1800.00'),
-            'packaging': 'Coal Cargo',
-            'party_name': 'Coal India Ltd',
-            'project_status': 'ongoing',
-            'remarks': 'High priority shipment'
+            'party_name': 'Arya Translogistics',
+            'remarks': 'Industrial grade silica'
         },
         {
-            'operation_name': 'CONTAINER-005',
+            'operation_name': 'PAPERBALES-005',
             'date': date.today(),
-            'cargo_type': 'container',
+            'cargo_type': 'paper_bales',
             'weight': Decimal('900.00'),
-            'packaging': '40ft Container',
-            'party_name': 'Global Shipping',
-            'project_status': 'pending',
-            'remarks': 'Export cargo'
+            'party_name': 'Jeel Kandla',
+            'remarks': 'Export cargo - paper bales'
         }
     ]
     

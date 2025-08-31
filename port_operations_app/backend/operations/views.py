@@ -42,17 +42,10 @@ class CargoOperationViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = CargoOperation.objects.all()
-        status = self.request.query_params.get('status', None)
         cargo_type = self.request.query_params.get('cargo_type', None)
-        running_only = self.request.query_params.get('running_only', None)
         
-        if status:
-            queryset = queryset.filter(project_status=status)
         if cargo_type:
             queryset = queryset.filter(cargo_type=cargo_type)
-        if running_only:
-            # For equipment start form - only show running and pending operations
-            queryset = queryset.filter(project_status__in=['pending', 'ongoing'])
             
         return queryset
     
@@ -524,8 +517,6 @@ class DashboardView(generics.GenericAPIView):
             # Admin dashboard data
             data.update({
                 'total_operations': CargoOperation.objects.count(),
-                'ongoing_operations': CargoOperation.objects.filter(project_status='ongoing').count(),
-                'pending_operations': CargoOperation.objects.filter(project_status='pending').count(),
                 'running_equipment': Equipment.objects.filter(status='running').count(),
                 'total_revenue': RevenueStream.objects.aggregate(
                     total=Sum('amount'))['total'] or 0,

@@ -17,53 +17,57 @@ class _CreateOperationScreenState extends ConsumerState<CreateOperationScreen> {
   final _formKey = GlobalKey<FormState>();
   final _operationNameController = TextEditingController();
   final _weightController = TextEditingController();
-  final _packagingController = TextEditingController();
-  final _partyNameController = TextEditingController();
   final _remarksController = TextEditingController();
+  final _newCargoTypeController = TextEditingController();
+  final _newPartyNameController = TextEditingController();
   
   DateTime _selectedDate = DateTime.now();
-  String _selectedCargoType = 'breakbulk';
-  String _selectedStatus = 'pending';
+  String _selectedCargoType = 'Paper Bales';
+  String _selectedPartyName = 'Arya Translogistics';
   bool _isLoading = false;
+  bool _showNewCargoTypeField = false;
+  bool _showNewPartyNameField = false;
 
   final List<String> _cargoTypes = [
-    'breakbulk',
-    'container',
-    'bulk',
-    'project',
-    'others',
+    'Paper Bales',
+    'Raw Salt',
+    'Coal',
+    'Silica',
+    'Add New...',
   ];
 
-  final List<String> _statusTypes = [
-    'pending',
-    'ongoing',
-    'completed',
+  final List<String> _partyNames = [
+    'Arya Translogistics',
+    'Jeel Kandla',
+    'Add New...',
   ];
+
+  // Mapping from display names to backend keys
+  final Map<String, String> _cargoTypeMapping = {
+    'Paper Bales': 'paper_bales',
+    'Raw Salt': 'raw_salt',
+    'Coal': 'coal',
+    'Silica': 'silica',
+  };
 
   @override
   void dispose() {
     _operationNameController.dispose();
     _weightController.dispose();
-    _packagingController.dispose();
-    _partyNameController.dispose();
     _remarksController.dispose();
+    _newCargoTypeController.dispose();
+    _newPartyNameController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authStateProvider);
-    final user = authState.user;
-
-    if (user == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Create Operation'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/operations'),
@@ -78,7 +82,8 @@ class _CreateOperationScreenState extends ConsumerState<CreateOperationScreen> {
             children: [
               // Header Card
               Card(
-                child: Padding(
+                child: Container(
+                  width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
@@ -134,18 +139,24 @@ class _CreateOperationScreenState extends ConsumerState<CreateOperationScreen> {
               _buildDateField(),
               const SizedBox(height: 16),
 
-              _buildDropdownField(
-                label: 'Cargo Type',
-                value: _selectedCargoType,
-                items: _cargoTypes,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedCargoType = value!;
-                  });
-                },
-                icon: Icons.inventory,
-              ),
+              _buildCargoTypeField(),
               const SizedBox(height: 16),
+
+              if (_showNewCargoTypeField) ...[
+                _buildTextField(
+                  controller: _newCargoTypeController,
+                  label: 'New Cargo Type',
+                  hint: 'Enter new cargo type',
+                  icon: Icons.add,
+                  validator: (value) {
+                    if (_selectedCargoType == 'Add New...' && (value == null || value.trim().isEmpty)) {
+                      return 'Please enter the new cargo type';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
 
               _buildTextField(
                 controller: _weightController,
@@ -163,55 +174,35 @@ class _CreateOperationScreenState extends ConsumerState<CreateOperationScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
-
-              _buildTextField(
-                controller: _packagingController,
-                label: 'Packaging',
-                hint: 'e.g., Steel Coils, 20ft Container',
-                icon: Icons.inventory_2,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Packaging is required';
-                  }
-                  return null;
-                },
-              ),
               const SizedBox(height: 24),
 
               // Party Information Section
               _buildSectionHeader('Party Information', Icons.business),
               const SizedBox(height: 16),
 
-              _buildTextField(
-                controller: _partyNameController,
-                label: 'Party Name',
-                hint: 'e.g., ABC Steel Industries',
-                icon: Icons.business,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Party name is required';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 24),
-
-              // Status & Remarks Section
-              _buildSectionHeader('Status & Remarks', Icons.assignment),
+              _buildPartyNameField(),
               const SizedBox(height: 16),
 
-              _buildDropdownField(
-                label: 'Project Status',
-                value: _selectedStatus,
-                items: _statusTypes,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedStatus = value!;
-                  });
-                },
-                icon: Icons.assignment_turned_in,
-              ),
+              if (_showNewPartyNameField) ...[
+                _buildTextField(
+                  controller: _newPartyNameController,
+                  label: 'New Party Name',
+                  hint: 'Enter new party name',
+                  icon: Icons.add,
+                  validator: (value) {
+                    if (_selectedPartyName == 'Add New...' && (value == null || value.trim().isEmpty)) {
+                      return 'Please enter the new party name';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              const SizedBox(height: 8),
+
+              // Remarks Section
+              _buildSectionHeader('Remarks', Icons.note),
               const SizedBox(height: 16),
 
               _buildTextField(
@@ -332,51 +323,68 @@ class _CreateOperationScreenState extends ConsumerState<CreateOperationScreen> {
     );
   }
 
-  Widget _buildDropdownField({
-    required String label,
-    required String value,
-    required List<String> items,
-    required ValueChanged<String?> onChanged,
-    required IconData icon,
-  }) {
+  Widget _buildCargoTypeField() {
     return DropdownButtonFormField<String>(
-      value: value,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-        border: const OutlineInputBorder(),
+      value: _selectedCargoType,
+      decoration: const InputDecoration(
+        labelText: 'Cargo Type',
+        prefixIcon: Icon(Icons.inventory),
+        border: OutlineInputBorder(),
       ),
-      items: items.map((String item) {
+      items: _cargoTypes.map((String item) {
         return DropdownMenuItem<String>(
           value: item,
-          child: Text(_getDisplayName(item)),
+          child: Text(item),
         );
       }).toList(),
-      onChanged: onChanged,
+      onChanged: (value) {
+        setState(() {
+          _selectedCargoType = value!;
+          _showNewCargoTypeField = value == 'Add New...';
+          if (!_showNewCargoTypeField) {
+            _newCargoTypeController.clear();
+          }
+        });
+      },
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Cargo type is required';
+        }
+        return null;
+      },
     );
   }
 
-  String _getDisplayName(String value) {
-    switch (value) {
-      case 'breakbulk':
-        return 'Breakbulk';
-      case 'container':
-        return 'Container';
-      case 'bulk':
-        return 'Bulk';
-      case 'project':
-        return 'Project Cargo';
-      case 'others':
-        return 'Others';
-      case 'pending':
-        return 'Pending';
-      case 'ongoing':
-        return 'Ongoing';
-      case 'completed':
-        return 'Completed';
-      default:
-        return value;
-    }
+  Widget _buildPartyNameField() {
+    return DropdownButtonFormField<String>(
+      value: _selectedPartyName,
+      decoration: const InputDecoration(
+        labelText: 'Party Name',
+        prefixIcon: Icon(Icons.business),
+        border: OutlineInputBorder(),
+      ),
+      items: _partyNames.map((String item) {
+        return DropdownMenuItem<String>(
+          value: item,
+          child: Text(item),
+        );
+      }).toList(),
+      onChanged: (value) {
+        setState(() {
+          _selectedPartyName = value!;
+          _showNewPartyNameField = value == 'Add New...';
+          if (!_showNewPartyNameField) {
+            _newPartyNameController.clear();
+          }
+        });
+      },
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Party name is required';
+        }
+        return null;
+      },
+    );
   }
 
   Future<void> _selectDate() async {
@@ -403,14 +411,27 @@ class _CreateOperationScreenState extends ConsumerState<CreateOperationScreen> {
     });
 
     try {
+      // Determine the final cargo type and party name
+      String finalCargoType = _selectedCargoType;
+      if (_selectedCargoType == 'Add New...' && _newCargoTypeController.text.trim().isNotEmpty) {
+        finalCargoType = _newCargoTypeController.text.trim();
+      }
+
+      String finalPartyName = _selectedPartyName;
+      if (_selectedPartyName == 'Add New...' && _newPartyNameController.text.trim().isNotEmpty) {
+        finalPartyName = _newPartyNameController.text.trim();
+      }
+
+      // Convert cargo type to backend format
+      String backendCargoType = _cargoTypeMapping[finalCargoType] ?? 
+          finalCargoType.toLowerCase().replaceAll(' ', '_');
+
       final operationData = {
         'operation_name': _operationNameController.text.trim(),
         'date': '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}',
-        'cargo_type': _selectedCargoType,
+        'cargo_type': backendCargoType,
         'weight': _weightController.text.trim(),
-        'packaging': _packagingController.text.trim(),
-        'party_name': _partyNameController.text.trim(),
-        'project_status': _selectedStatus,
+        'party_name': finalPartyName,
         'remarks': _remarksController.text.trim().isEmpty ? null : _remarksController.text.trim(),
       };
 

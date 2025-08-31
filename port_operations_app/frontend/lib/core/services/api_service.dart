@@ -1,7 +1,8 @@
-import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:logger/logger.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter/foundation.dart';
 import '../constants/app_constants.dart';
 
 class ApiService {
@@ -226,7 +227,7 @@ class ApiService {
   // File upload method
   Future<Response<T>> uploadFile<T>(
     String path,
-    File file, {
+    XFile file, {
     String fieldName = 'file',
     Map<String, dynamic>? additionalData,
     ProgressCallback? onSendProgress,
@@ -234,11 +235,22 @@ class ApiService {
     try {
       final formData = FormData();
       
-      // Add file
-      formData.files.add(MapEntry(
-        fieldName,
-        await MultipartFile.fromFile(file.path),
-      ));
+      // Add file using cross-platform approach
+      MultipartFile multipartFile;
+      if (kIsWeb) {
+        final bytes = await file.readAsBytes();
+        multipartFile = MultipartFile.fromBytes(
+          bytes,
+          filename: file.name,
+        );
+      } else {
+        multipartFile = await MultipartFile.fromFile(
+          file.path,
+          filename: file.name,
+        );
+      }
+      
+      formData.files.add(MapEntry(fieldName, multipartFile));
       
       // Add additional data
       if (additionalData != null) {
@@ -308,7 +320,11 @@ class ApiService {
           statusCode: 0,
         );
       case DioExceptionType.unknown:
-        if (error.error is SocketException) {
+        // Handle connection errors more generically for cross-platform compatibility
+        final errorString = error.error.toString();
+        if (errorString.contains('SocketException') || 
+            errorString.contains('Network is unreachable') ||
+            errorString.contains('Failed host lookup')) {
           return ApiException(
             message: 'No internet connection',
             statusCode: 0,
