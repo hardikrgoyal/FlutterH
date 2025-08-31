@@ -63,6 +63,14 @@ echo -e "${YELLOW}🗄️ Setting up PostgreSQL...${NC}"
 sudo -u postgres psql -c "CREATE DATABASE port_operations_db;" 2>/dev/null || echo "Database already exists"
 sudo -u postgres psql -c "CREATE USER port_user WITH PASSWORD 'secure_db_password_123';" 2>/dev/null || echo "User already exists"
 sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE port_operations_db TO port_user;" 2>/dev/null || echo "Privileges already granted"
+sudo -u postgres psql -c "ALTER USER port_user CREATEDB;" 2>/dev/null || echo "CREATEDB privilege already granted"
+
+# Grant schema permissions
+sudo -u postgres psql -d port_operations_db -c "GRANT ALL ON SCHEMA public TO port_user;" 2>/dev/null || echo "Schema permissions already granted"
+sudo -u postgres psql -d port_operations_db -c "GRANT CREATE ON SCHEMA public TO port_user;" 2>/dev/null || echo "CREATE permissions already granted"
+
+# For PostgreSQL 15+, grant additional permissions
+sudo -u postgres psql -d port_operations_db -c "GRANT CREATE ON DATABASE port_operations_db TO port_user;" 2>/dev/null || echo "Database CREATE permissions already granted"
 
 # Setup Python virtual environment
 echo -e "${YELLOW}🐍 Setting up Python environment...${NC}"
@@ -110,7 +118,15 @@ sed -i "s/your-super-secret-production-key-change-this/$SECRET_KEY/" .env
 # Update Django settings for production
 echo -e "${YELLOW}⚙️ Configuring Django for production...${NC}"
 python manage.py collectstatic --noinput
-python manage.py migrate
+
+# Try PostgreSQL migration first, fallback to SQLite if it fails
+echo -e "${YELLOW}📊 Running database migrations...${NC}"
+if ! python manage.py migrate; then
+    echo -e "${YELLOW}⚠️ PostgreSQL migration failed, falling back to SQLite...${NC}"
+    # Update .env to use SQLite
+    sed -i 's/DATABASE_ENGINE=django.db.backends.postgresql/DATABASE_ENGINE=sqlite/' .env
+    python manage.py migrate
+fi
 
 # Create Django superuser (optional)
 echo -e "${YELLOW}👤 Creating Django superuser...${NC}"
