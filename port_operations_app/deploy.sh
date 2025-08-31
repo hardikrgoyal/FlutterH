@@ -10,8 +10,8 @@ NC='\033[0m' # No Color
 # Configuration
 DOMAIN="app.globalseatrans.com"
 APP_DIR="/var/www/port_operations"
-BACKEND_DIR="$APP_DIR/backend"
-FRONTEND_DIR="$APP_DIR/frontend"
+BACKEND_DIR="$APP_DIR/port_operations_app/backend"
+FRONTEND_DIR="$APP_DIR/port_operations_app/frontend"
 NGINX_AVAILABLE="/etc/nginx/sites-available"
 NGINX_ENABLED="/etc/nginx/sites-enabled"
 
@@ -66,7 +66,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # Copy production environment file
-cp ../production.env .env
+cp ../../production.env .env
 
 # Generate Django secret key
 echo -e "${YELLOW}🔐 Generating Django secret key...${NC}"
