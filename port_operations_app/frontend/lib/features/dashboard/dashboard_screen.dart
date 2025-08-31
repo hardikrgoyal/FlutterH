@@ -274,15 +274,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           _buildEmptyEquipmentCard()
         else
           // Single column with vertically scrollable equipment cards
-          SizedBox(
-            height: 400, // Increased height to accommodate new card design
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.4, // Dynamic height based on screen size
+            ),
             child: ListView.builder(
+              shrinkWrap: true,
               scrollDirection: Axis.vertical,
               itemCount: equipmentState.runningEquipment.length,
               itemBuilder: (context, index) {
                 final equipment = equipmentState.runningEquipment[index];
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 12), // Increased margin for better spacing
+                  margin: const EdgeInsets.only(bottom: 12),
                   child: _buildFullWidthEquipmentCard(context, ref, equipment, showStopButtons),
                 );
               },
@@ -1093,39 +1096,43 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
-            childAspectRatio: 1.8,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-          children: [
-            _buildStatCard(
-              'Total Operations',
-              '${operationsState.operations.length}',
-              Icons.business,
-              AppColors.primary,
-            ),
-            _buildStatCard(
-              'Running Equipment',
-              '${equipmentState.runningEquipment.length}',
-              MdiIcons.crane,
-              AppColors.warning,
-            ),
-            _buildStatCard(
-              'Total Revenue',
-              '₹${NumberFormat('#,##,###').format(totalRevenue)}',
-              Icons.currency_rupee,
-              AppColors.success,
-            ),
-            _buildStatCard(
-              'Revenue Streams',
-              '${revenueState.revenueStreams.length}',
-              Icons.trending_up,
-              AppColors.info,
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              childAspectRatio: 2.0, // Increased aspect ratio to give more width
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              children: [
+                _buildStatCard(
+                  'Total Operations',
+                  '${operationsState.operations.length}',
+                  Icons.business,
+                  AppColors.primary,
+                ),
+                _buildStatCard(
+                  'Running Equipment',
+                  '${equipmentState.runningEquipment.length}',
+                  MdiIcons.crane,
+                  AppColors.warning,
+                ),
+                _buildStatCard(
+                  'Total Revenue',
+                  '₹${NumberFormat('#,##,###').format(totalRevenue)}',
+                  Icons.currency_rupee,
+                  AppColors.success,
+                ),
+                _buildStatCard(
+                  'Revenue Streams',
+                  '${revenueState.revenueStreams.length}',
+                  Icons.trending_up,
+                  AppColors.info,
+                ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -1146,39 +1153,43 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          childAspectRatio: 1.8,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          children: [
-            _buildStatCard(
-              'Total Operations',
-              '${stats['total']}',
-              Icons.business,
-              AppColors.primary,
-            ),
-            _buildStatCard(
-              'Ongoing',
-              '${stats['ongoing']}',
-              Icons.play_circle,
-              AppColors.warning,
-            ),
-            _buildStatCard(
-              'Pending',
-              '${stats['pending']}',
-              Icons.pending,
-              AppColors.info,
-            ),
-            _buildStatCard(
-              'Completed',
-              '${stats['completed']}',
-              Icons.check_circle,
-              AppColors.success,
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              childAspectRatio: 2.0, // Increased aspect ratio
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              children: [
+                _buildStatCard(
+                  'Total Operations',
+                  '${stats['total']}',
+                  Icons.business,
+                  AppColors.primary,
+                ),
+                _buildStatCard(
+                  'Ongoing',
+                  '${stats['ongoing']}',
+                  Icons.play_circle,
+                  AppColors.warning,
+                ),
+                _buildStatCard(
+                  'Pending',
+                  '${stats['pending']}',
+                  Icons.pending,
+                  AppColors.info,
+                ),
+                _buildStatCard(
+                  'Completed',
+                  '${stats['completed']}',
+                  Icons.check_circle,
+                  AppColors.success,
+                ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -1187,37 +1198,41 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildStatCard(String title, String value, IconData icon, Color color) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(8), // Reduced padding
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: color, size: 28),
-            const SizedBox(height: 6),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                value,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: color,
+            Icon(icon, color: color, size: 24), // Reduced icon size
+            const SizedBox(height: 4), // Reduced spacing
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 18, // Reduced font size
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
             const SizedBox(height: 2),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
+            Flexible(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 10, // Reduced font size
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -1473,44 +1488,50 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
-          childAspectRatio: 2.5,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-          children: actions,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              childAspectRatio: 3.0, // Increased aspect ratio for action buttons
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              children: actions,
+            );
+          },
         ),
       ],
     );
   }
 
   Widget _buildActionButton(String title, IconData icon, Color color, VoidCallback onTap) {
-            return Card(
-              child: InkWell(
+    return Card(
+      child: InkWell(
         onTap: onTap,
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-              Icon(icon, color: color, size: 24),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12), // Reduced padding
+          child: Row(
+            children: [
+              Icon(icon, color: color, size: 20), // Reduced icon size
+              const SizedBox(width: 8), // Reduced spacing
+              Expanded(
+                child: Text(
                   title,
-                  style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ],
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12, // Reduced font size
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-            );
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // Additional sections for different roles
@@ -1525,19 +1546,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          childAspectRatio: 1.8,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          children: [
-            _buildStatCard('Wallet Balance', '₹0', Icons.account_balance_wallet, AppColors.success),
-            _buildStatCard('My Equipment', '0', Icons.build, AppColors.warning),
-            _buildStatCard('Pending Expenses', '0', Icons.receipt, AppColors.error),
-            _buildStatCard('Today\'s Tasks', '0', Icons.today, AppColors.primary),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              childAspectRatio: 2.0, // Increased aspect ratio
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              children: [
+                _buildStatCard('Wallet Balance', '₹0', Icons.account_balance_wallet, AppColors.success),
+                _buildStatCard('My Equipment', '0', Icons.build, AppColors.warning),
+                _buildStatCard('Pending Expenses', '0', Icons.receipt, AppColors.error),
+                _buildStatCard('Today\'s Tasks', '0', Icons.today, AppColors.primary),
+              ],
+            );
+          },
         ),
       ],
     );

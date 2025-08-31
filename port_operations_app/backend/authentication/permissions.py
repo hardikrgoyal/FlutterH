@@ -66,6 +66,12 @@ class CanManageWallets(BaseRolePermission):
     """
     allowed_roles = ['accountant', 'admin']
 
+class HasWallet(BaseRolePermission):
+    """
+    Permission for users who have their own wallets (excludes accountants)
+    """
+    allowed_roles = ['admin', 'manager', 'supervisor']
+
 class CanAccessLabourCosts(permissions.BasePermission):
     """
     Custom permission for labour costs:

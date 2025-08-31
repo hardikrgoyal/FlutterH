@@ -273,6 +273,33 @@ class AppDrawer extends ConsumerWidget {
             },
           },
           {
+            'title': 'Wallet',
+            'icon': Icons.account_balance_wallet,
+            'color': AppColors.success,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/wallet');
+            },
+          },
+          {
+            'title': 'Expense Approvals',
+            'icon': Icons.approval,
+            'color': AppColors.error,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/approvals');
+            },
+          },
+          {
+            'title': 'Voucher Approvals',
+            'icon': Icons.assignment_turned_in,
+            'color': AppColors.warning,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/voucher-approvals');
+            },
+          },
+          {
             'title': 'Financial',
             'icon': Icons.currency_rupee,
             'color': AppColors.success,
@@ -368,22 +395,30 @@ class AppDrawer extends ConsumerWidget {
             },
           },
           {
-            'title': 'Revenue Streams',
+            'title': 'Wallet',
             'icon': Icons.account_balance_wallet,
             'color': AppColors.success,
             'onTap': () {
               Navigator.pop(context);
-              context.go('/revenue');
+              context.go('/wallet');
             },
           },
           {
             'title': 'Expense Approvals',
             'icon': Icons.approval,
             'color': AppColors.error,
-            'badge': '0',
             'onTap': () {
               Navigator.pop(context);
-              context.go('/expenses');
+              context.go('/approvals');
+            },
+          },
+          {
+            'title': 'Revenue Streams',
+            'icon': Icons.currency_rupee,
+            'color': AppColors.success,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/revenue');
             },
           },
         ];
@@ -454,20 +489,18 @@ class AppDrawer extends ConsumerWidget {
             'title': 'Expense Approvals',
             'icon': Icons.check_circle,
             'color': AppColors.accountantColor,
-            'badge': '0',
             'onTap': () {
               Navigator.pop(context);
-              context.go('/expenses');
+              context.go('/approvals');
             },
           },
           {
             'title': 'Voucher Approvals',
             'icon': Icons.description,
             'color': AppColors.warning,
-            'badge': '0',
             'onTap': () {
               Navigator.pop(context);
-              context.go('/vouchers');
+              context.go('/voucher-approvals');
             },
           },
           {
@@ -476,7 +509,7 @@ class AppDrawer extends ConsumerWidget {
             'color': AppColors.primary,
             'onTap': () {
               Navigator.pop(context);
-              context.go('/wallet');
+              context.go('/wallet-management');
             },
           },
           {

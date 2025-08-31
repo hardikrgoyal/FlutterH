@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator
+from django.core.exceptions import ValidationError
 from decimal import Decimal
 
 User = get_user_model()
@@ -34,15 +35,27 @@ class Wallet(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.action} {self.amount}"
     
+    def clean(self):
+        """Validate that accountants cannot have wallet transactions"""
+        if self.user and self.user.role == 'accountant':
+            raise ValidationError('Accountants cannot have wallet transactions')
+    
     @classmethod
     def get_balance(cls, user):
         """Get current wallet balance for a user"""
+        # Accountants don't have wallets
+        if user.role == 'accountant':
+            return Decimal('0.00')
+        
         transactions = cls.objects.filter(user=user).order_by('-date')
         if transactions.exists():
             return transactions.first().balance_after
         return Decimal('0.00')
     
     def save(self, *args, **kwargs):
+        # Validate before saving
+        self.clean()
+        
         # Calculate balance after transaction
         current_balance = self.get_balance(self.user)
         
@@ -173,6 +186,29 @@ class DigitalVoucher(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        
+        # Auto-debit wallet when logged by accountant
+        if self.status == 'logged' and self.logged_by:
+            # Check if wallet transaction already exists
+            existing_transaction = Wallet.objects.filter(
+                user=self.user,
+                reference='voucher',
+                reference_id=str(self.id)
+            ).first()
+            
+            if not existing_transaction:
+                Wallet.objects.create(
+                    user=self.user,
+                    action='debit',
+                    amount=self.amount,
+                    reference='voucher',
+                    reference_id=str(self.id),
+                    approved_by=self.logged_by,
+                    description=f"Digital voucher - {self.expense_category}"
+                )
+    
     def __str__(self):
         return f"{self.expense_category} - {self.amount} ({self.user.username})"
     
@@ -197,7 +233,15 @@ class WalletTopUp(models.Model):
     topped_up_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='performed_topups')
     created_at = models.DateTimeField(auto_now_add=True)
     
+    def clean(self):
+        """Validate that accountants cannot be topped up"""
+        if self.user and self.user.role == 'accountant':
+            raise ValidationError('Accountants do not have wallets and cannot be topped up')
+    
     def save(self, *args, **kwargs):
+        # Validate before saving
+        self.clean()
+        
         super().save(*args, **kwargs)
         
         # Create wallet credit transaction

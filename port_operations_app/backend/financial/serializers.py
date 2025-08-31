@@ -47,6 +47,12 @@ class WalletTopUpSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['topped_up_by', 'created_at']
     
+    def validate_user(self, value):
+        """Validate that only wallet holders can be topped up"""
+        if value.role == 'accountant':
+            raise serializers.ValidationError("Accountants do not have wallets and cannot be topped up")
+        return value
+    
     def create(self, validated_data):
         validated_data['topped_up_by'] = self.context['request'].user
         return super().create(validated_data)

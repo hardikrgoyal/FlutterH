@@ -55,6 +55,7 @@ class User {
   bool get canManageUsers => isAdmin;
   bool get canViewReports => isAdmin || isManager || isAccountant;
   bool get canManageWallet => isAdmin || isAccountant;
+  bool get hasWallet => isAdmin || isManager || isSupervisor;
   bool get canSubmitExpenses => isSupervisor;
   bool get canManageLabourCosts => isAdmin || isManager || isSupervisor || isAccountant;
   bool get canEditLabourCosts => isAdmin || isManager || isAccountant;

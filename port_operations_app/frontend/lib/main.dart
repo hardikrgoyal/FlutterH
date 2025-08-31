@@ -28,6 +28,9 @@ import 'features/miscellaneous/screens/miscellaneous_detail_screen.dart';
 import 'features/revenue/screens/revenue_list_screen.dart';
 import 'features/revenue/screens/revenue_form_screen.dart';
 import 'features/revenue/screens/revenue_detail_screen.dart';
+import 'features/wallet/screens/expense_approvals_screen.dart';
+import 'features/wallet/screens/voucher_approvals_screen.dart';
+import 'features/wallet/screens/wallet_management_screen.dart';
 import 'features/auth/auth_service.dart';
 import 'core/constants/app_theme.dart';
 import 'core/constants/app_constants.dart';
@@ -172,6 +175,11 @@ class PortOperationsApp extends ConsumerWidget {
           builder: (context, state) => const _PlaceholderScreen(title: 'Wallet Top-up'),
         ),
         GoRoute(
+          path: '/wallet-management',
+          name: 'wallet-management',
+          builder: (context, state) => const WalletManagementScreen(),
+        ),
+        GoRoute(
           path: '/expenses',
           name: 'expenses',
           builder: (context, state) => const _PlaceholderScreen(title: 'Expenses'),
@@ -182,9 +190,19 @@ class PortOperationsApp extends ConsumerWidget {
           builder: (context, state) => const _PlaceholderScreen(title: 'Submit Expense'),
         ),
         GoRoute(
+          path: '/approvals',
+          name: 'approvals',
+          builder: (context, state) => const ExpenseApprovalsScreen(),
+        ),
+        GoRoute(
+          path: '/voucher-approvals',
+          name: 'voucher-approvals',
+          builder: (context, state) => const VoucherApprovalsScreen(),
+        ),
+        GoRoute(
           path: '/expenses/approvals',
           name: 'expenses-approvals',
-          builder: (context, state) => const _PlaceholderScreen(title: 'Expense Approvals'),
+          builder: (context, state) => const ExpenseApprovalsScreen(),
         ),
         GoRoute(
           path: '/vouchers',

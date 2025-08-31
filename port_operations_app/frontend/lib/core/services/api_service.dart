@@ -260,6 +260,31 @@ class ApiService {
     }
   }
 
+  // File download method
+  Future<Response<List<int>>> download(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+    String? savePath,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    try {
+      return await _dio.get<List<int>>(
+        path,
+        queryParameters: queryParameters,
+        options: Options(
+          responseType: ResponseType.bytes,
+          followRedirects: false,
+          validateStatus: (status) {
+            return status! < 500;
+          },
+        ),
+        onReceiveProgress: onReceiveProgress,
+      );
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   ApiException _handleError(DioException error) {
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
