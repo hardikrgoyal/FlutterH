@@ -225,6 +225,33 @@ class _MySubmissionsScreenState extends ConsumerState<MySubmissionsScreen>
                   'Gate: ${_getGateDisplayName(expense.gateNo)}',
                   style: TextStyle(color: Colors.grey[600]),
                 ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: expense.inOut == 'In' ? Colors.green.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: expense.inOut == 'In' ? Colors.green.withValues(alpha: 0.3) : Colors.orange.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Text(
+                    expense.inOut,
+                    style: TextStyle(
+                      color: expense.inOut == 'In' ? Colors.green[700] : Colors.orange[700],
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (expense.photo != null) ...[
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.photo,
+                    size: 16,
+                    color: AppColors.primary,
+                  ),
+                ],
                 const Spacer(),
                 Icon(Icons.currency_rupee, size: 16, color: Colors.grey[600]),
                 Text(

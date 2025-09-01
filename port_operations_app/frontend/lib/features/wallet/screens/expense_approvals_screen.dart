@@ -8,6 +8,7 @@ import '../../../shared/models/user_model.dart';
 import '../../auth/auth_service.dart';
 import '../wallet_provider.dart';
 import '../wallet_service.dart';
+import 'expense_detail_screen.dart';
 
 class ExpenseApprovalsScreen extends ConsumerStatefulWidget {
   const ExpenseApprovalsScreen({super.key});
@@ -275,9 +276,14 @@ class _ExpenseApprovalsScreenState extends ConsumerState<ExpenseApprovalsScreen>
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _viewExpenseDetails(expense),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -352,9 +358,10 @@ class _ExpenseApprovalsScreenState extends ConsumerState<ExpenseApprovalsScreen>
               _buildActionButtons(expense, user),
             ],
           ],
-        ),
-      ),
-    );
+                 ), // closes Padding
+       ), // closes InkWell
+     ), // closes Card
+     ); // closes method
   }
 
   Widget _buildApprovalInfo(PortExpenseStatus expense) {
@@ -575,6 +582,15 @@ class _ExpenseApprovalsScreenState extends ConsumerState<ExpenseApprovalsScreen>
       default:
         return 'Add comments...';
     }
+  }
+
+  void _viewExpenseDetails(PortExpenseStatus expense) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ExpenseDetailScreen(expense: expense),
+      ),
+    );
   }
 
   Color _getActionColor(String action) {

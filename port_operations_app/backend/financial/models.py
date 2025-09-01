@@ -81,10 +81,17 @@ class PortExpense(models.Model):
     ]
     
     GATE_CHOICES = [
-        ('gate_1', 'Gate 1'),
-        ('gate_2', 'Gate 2'),
-        ('gate_3', 'Gate 3'),
-        ('main_gate', 'Main Gate'),
+        ('north_gate', 'North Gate'),
+        ('bandar_area', 'Bandar Area'),
+        ('west_gate_1', 'West Gate 1'),
+        ('west_gate_2', 'West Gate 2'),
+        ('west_gate_3', 'West Gate 3'),
+        ('cj_13', 'CJ 13'),
+    ]
+    
+    IN_OUT_CHOICES = [
+        ('In', 'In'),
+        ('Out', 'Out'),
     ]
     
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='submitted_expenses')
@@ -92,11 +99,12 @@ class PortExpense(models.Model):
     vehicle = models.CharField(max_length=50)
     vehicle_number = models.CharField(max_length=20)
     gate_no = models.CharField(max_length=20, choices=GATE_CHOICES)
+    in_out = models.CharField(max_length=3, choices=IN_OUT_CHOICES, default='In')
     description = models.TextField()
     cisf_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('50.00'))
-    kpt_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('100.00'))
-    customs_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('75.00'))
-    road_tax_days = models.IntegerField(default=1, validators=[MinValueValidator(1)])
+    kpt_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('50.00'))
+    customs_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('50.00'))
+    road_tax_days = models.IntegerField(default=0, validators=[MinValueValidator(0)])
     road_tax_amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     other_charges = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
@@ -111,7 +119,7 @@ class PortExpense(models.Model):
     def save(self, *args, **kwargs):
         # Auto-calculate road tax and total
         if not self.road_tax_amount:
-            self.road_tax_amount = Decimal('200.00') * self.road_tax_days  # ₹200 per day
+            self.road_tax_amount = Decimal('50.00') * self.road_tax_days  # ₹50 per day
         
         self.total_amount = (
             self.cisf_amount + 

@@ -104,6 +104,7 @@ class WalletService {
     required String vehicle,
     required String vehicleNumber,
     required String gateNo,
+    required String inOut,
     required String description,
     double? cisfAmount,
     double? kptAmount,
@@ -118,6 +119,7 @@ class WalletService {
         'vehicle': vehicle,
         'vehicle_number': vehicleNumber,
         'gate_no': gateNo,
+        'in_out': inOut,
         'description': description,
         if (cisfAmount != null) 'cisf_amount': cisfAmount,
         if (kptAmount != null) 'kpt_amount': kptAmount,
@@ -586,12 +588,15 @@ class PortExpenseStatus {
   final String vehicle;
   final String vehicleNumber;
   final String gateNo;
+  final String inOut;
+  final String description;
   final double totalAmount;
   final String status;
   final DateTime dateTime;
   final String? reviewedByName;
   final String? approvedByName;
   final String? reviewComments;
+  final String? photo;
   final DateTime createdAt;
 
   PortExpenseStatus({
@@ -599,12 +604,15 @@ class PortExpenseStatus {
     required this.vehicle,
     required this.vehicleNumber,
     required this.gateNo,
+    required this.inOut,
+    required this.description,
     required this.totalAmount,
     required this.status,
     required this.dateTime,
     this.reviewedByName,
     this.approvedByName,
     this.reviewComments,
+    this.photo,
     required this.createdAt,
   });
 
@@ -614,12 +622,15 @@ class PortExpenseStatus {
       vehicle: json['vehicle'],
       vehicleNumber: json['vehicle_number'],
       gateNo: json['gate_no'],
+      inOut: json['in_out'] ?? 'In',
+      description: json['description'] ?? '',
       totalAmount: double.parse(json['total_amount'].toString()),
       status: json['status'],
       dateTime: DateTime.parse(json['date_time']),
       reviewedByName: json['reviewed_by_name'],
       approvedByName: json['approved_by_name'],
       reviewComments: json['review_comments'],
+      photo: json['photo'],
       createdAt: DateTime.parse(json['created_at']),
     );
   }

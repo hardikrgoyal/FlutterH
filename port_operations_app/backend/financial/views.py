@@ -33,8 +33,8 @@ class PortExpenseViewSet(viewsets.ModelViewSet):
         user = self.request.user
         status_filter = self.request.query_params.get('status', None)
         
-        # Supervisors can only see their own expenses
-        if user.is_supervisor:
+        # Non-admin users can only see their own expenses
+        if hasattr(user, 'role') and user.role != 'admin':
             queryset = queryset.filter(user=user)
         
         if status_filter:
@@ -55,8 +55,8 @@ class DigitalVoucherViewSet(viewsets.ModelViewSet):
         user = self.request.user
         status_filter = self.request.query_params.get('status', None)
         
-        # Supervisors can only see their own vouchers
-        if user.is_supervisor:
+        # Non-admin users can only see their own vouchers
+        if hasattr(user, 'role') and user.role != 'admin':
             queryset = queryset.filter(user=user)
         
         if status_filter:

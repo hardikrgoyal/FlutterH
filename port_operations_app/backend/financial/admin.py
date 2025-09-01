@@ -11,8 +11,8 @@ class WalletAdmin(admin.ModelAdmin):
 
 @admin.register(PortExpense)
 class PortExpenseAdmin(admin.ModelAdmin):
-    list_display = ['vehicle', 'vehicle_number', 'user', 'gate_no', 'total_amount', 'status', 'date_time']
-    list_filter = ['status', 'gate_no', 'date_time']
+    list_display = ['vehicle', 'vehicle_number', 'user', 'gate_no', 'in_out', 'total_amount', 'status', 'date_time']
+    list_filter = ['status', 'gate_no', 'in_out', 'date_time']
     search_fields = ['vehicle', 'vehicle_number', 'user__username']
     readonly_fields = ['road_tax_amount', 'total_amount', 'created_at', 'updated_at']
     date_hierarchy = 'date_time'
