@@ -2160,7 +2160,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 'Add Labour Cost',
                 Icons.group_add,
                 AppColors.success,
-                () => context.push('/labour/add'),
+                () => context.push('/labour/new'),
               ),
             ),
           ],
