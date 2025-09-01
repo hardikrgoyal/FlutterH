@@ -196,7 +196,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             ),
             const SizedBox(width: 12),
           ],
-          if (user.isSupervisor) ...[
+          if (user.isSupervisor || user.isManager) ...[
             Expanded(
               child: _buildActionButton(
                 'My Submissions',

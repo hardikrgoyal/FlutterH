@@ -5,6 +5,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../shared/widgets/loading_widget.dart';
 import '../wallet_provider.dart';
 import '../wallet_service.dart';
+import 'expense_detail_screen.dart';
+import 'voucher_detail_screen.dart';
 
 class MySubmissionsScreen extends ConsumerStatefulWidget {
   const MySubmissionsScreen({super.key});
@@ -176,11 +178,14 @@ class _MySubmissionsScreenState extends ConsumerState<MySubmissionsScreen>
     
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => _viewExpenseDetails(expense),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -247,7 +252,8 @@ class _MySubmissionsScreenState extends ConsumerState<MySubmissionsScreen>
               const Divider(),
               _buildApprovalInfo(expense),
             ],
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -258,11 +264,14 @@ class _MySubmissionsScreenState extends ConsumerState<MySubmissionsScreen>
     
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => _viewVoucherDetails(voucher),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -318,7 +327,8 @@ class _MySubmissionsScreenState extends ConsumerState<MySubmissionsScreen>
               const Divider(),
               _buildVoucherApprovalInfo(voucher),
             ],
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -458,5 +468,23 @@ class _MySubmissionsScreenState extends ConsumerState<MySubmissionsScreen>
       default:
         return category;
     }
+  }
+
+  void _viewExpenseDetails(PortExpenseStatus expense) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ExpenseDetailScreen(expense: expense),
+      ),
+    );
+  }
+
+  void _viewVoucherDetails(VoucherStatus voucher) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => VoucherDetailScreen(voucher: voucher),
+      ),
+    );
   }
 } 
