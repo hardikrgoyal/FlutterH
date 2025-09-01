@@ -7,7 +7,7 @@ import '../../core/constants/app_colors.dart';
 import '../../shared/models/user_model.dart';
 import '../equipment/models/equipment_model.dart';
 import '../../shared/models/cargo_operation_model.dart';
-import '../../shared/models/revenue_stream_model.dart';
+
 import '../auth/auth_service.dart';
 import '../equipment/services/equipment_service.dart';
 import '../operations/operations_service.dart';
@@ -15,6 +15,11 @@ import '../revenue/services/revenue_service.dart';
 import '../labour/labour_service.dart';
 import '../../shared/models/labour_cost_model.dart';
 import '../../shared/widgets/app_drawer.dart';
+import '../wallet/wallet_provider.dart';
+import '../wallet/wallet_service.dart';
+import '../wallet/screens/create_expense_screen.dart';
+import '../wallet/screens/create_voucher_screen.dart';
+import '../wallet/screens/my_submissions_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -44,10 +49,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ref.read(equipmentManagementProvider.notifier).loadRunningEquipment();
       ref.read(operationsManagementProvider.notifier).loadOperations();
       
-      // Load labour costs for supervisor
-      if (user.role == 'supervisor') {
-        ref.read(labourCostProvider.notifier).loadLabourCosts();
-      }
+      // Load labour costs for both manager and supervisor
+      ref.read(labourCostProvider.notifier).loadLabourCosts();
+      
+      // Load wallet data for both manager and supervisor
+      ref.invalidate(walletBalanceProvider);
     }
     
     if (user.role == 'admin') {
@@ -55,11 +61,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ref.read(equipmentManagementProvider.notifier).loadRunningEquipment();
       ref.read(operationsManagementProvider.notifier).loadOperations();
       ref.read(revenueStreamProvider.notifier).loadRevenueStreams();
+      ref.read(labourCostProvider.notifier).loadLabourCosts();
+      
+      // Load approval data for admin
+      ref.invalidate(allExpensesProvider);
+      ref.invalidate(allVouchersProvider);
     }
 
     if (user.role == 'manager' || user.role == 'admin') {
       // Load financial data
       ref.read(revenueStreamProvider.notifier).loadRevenueStreams();
+      
+      // Load approval data for manager
+      if (user.role == 'manager') {
+        ref.invalidate(allExpensesProvider);
+        ref.invalidate(allVouchersProvider);
+      }
     }
   }
 
@@ -94,8 +111,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildWelcomeCard(context, user),
-              const SizedBox(height: 16),
               ..._buildRoleSpecificContent(context, user, ref),
             ],
           ),
@@ -121,11 +136,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return [
       _buildSystemStatsSection(context, ref),
       const SizedBox(height: 16),
+      _buildWalletSection(context, ref),
+      const SizedBox(height: 16),
+      _buildImportantActionsSection(context),
+      const SizedBox(height: 16),
       _buildFinancialOverviewSection(context, ref),
       const SizedBox(height: 16),
       _buildRunningEquipmentSection(context, ref, showStopButtons: false),
       const SizedBox(height: 16),
-      _buildAdminQuickActions(context),
+      _buildLabourDetailsByShiftsSection(context, ref),
+      const SizedBox(height: 16),
+      _buildExpenseApprovalSection(context, ref),
+      const SizedBox(height: 16),
+      _buildVoucherApprovalSection(context, ref),
       const SizedBox(height: 16),
       _buildRecentActivitiesSection(context, ref),
     ];
@@ -133,25 +156,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   List<Widget> _buildManagerDashboard(BuildContext context, WidgetRef ref) {
     return [
-      _buildOperationsStatsSection(context, ref),
+      _buildWalletSection(context, ref),
+      const SizedBox(height: 16),
+      _buildImportantActionsSection(context),
       const SizedBox(height: 16),
       _buildRunningEquipmentSection(context, ref, showStopButtons: true),
       const SizedBox(height: 16),
+      _buildLabourDetailsByShiftsSection(context, ref),
+      const SizedBox(height: 16),
+      _buildExpenseApprovalSection(context, ref),
+      const SizedBox(height: 16),
+      _buildVoucherApprovalSection(context, ref),
+      const SizedBox(height: 16),
       _buildFinancialSummarySection(context, ref),
-      const SizedBox(height: 16),
-      _buildManagerQuickActions(context),
-      const SizedBox(height: 16),
-      _buildTodaysOperationsSection(context, ref),
     ];
   }
 
   List<Widget> _buildSupervisorDashboard(BuildContext context, WidgetRef ref) {
     return [
+      _buildWalletSection(context, ref),
+      const SizedBox(height: 16),
+      _buildImportantActionsSection(context),
+      const SizedBox(height: 16),
       _buildRunningEquipmentSection(context, ref, showStopButtons: true),
       const SizedBox(height: 16),
       _buildLabourDetailsByShiftsSection(context, ref),
-      const SizedBox(height: 16),
-      _buildSupervisorQuickActions(context),
       const SizedBox(height: 16),
       _buildEquipmentAlertsSection(context, ref),
     ];
@@ -159,89 +188,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   List<Widget> _buildOperatorDashboard(BuildContext context, WidgetRef ref) {
     return [
-      _buildOperatorStatsSection(context, ref),
+      _buildWalletSection(context, ref),
       const SizedBox(height: 16),
-      _buildOperatorQuickActions(context),
+      _buildOperatorStatsSection(context, ref),
       const SizedBox(height: 16),
       _buildMyEquipmentSection(context, ref),
     ];
   }
 
-  Widget _buildWelcomeCard(BuildContext context, User user) {
-    final now = DateTime.now();
-    final timeOfDay = now.hour < 12 ? 'Morning' : now.hour < 17 ? 'Afternoon' : 'Evening';
-    
-    return Card(
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: AppColors.primaryGradient,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: AppColors.white.withValues(alpha: 0.2),
-                  child: Text(
-                    user.firstName.isNotEmpty ? user.firstName[0].toUpperCase() : 'U',
-                    style: const TextStyle(
-                      color: AppColors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Good $timeOfDay!',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: AppColors.white.withValues(alpha: 0.9),
-                        ),
-                      ),
-                      Text(
-                        user.fullName.isNotEmpty ? user.fullName : user.username,
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: AppColors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        user.roleDisplayName,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.white.withValues(alpha: 0.8),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  _getRoleIcon(user.role),
-                  color: AppColors.white.withValues(alpha: 0.7),
-                  size: 32,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              DateFormat('EEEE, MMMM d, yyyy').format(now),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.white.withValues(alpha: 0.8),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   // Equipment Cards Section (Most Important for Manager/Supervisor)
   Widget _buildRunningEquipmentSection(BuildContext context, WidgetRef ref, {bool showStopButtons = false}) {
@@ -430,16 +385,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildContractDot(String contractType) {
-    return Container(
-      width: 8,
-      height: 8,
-      decoration: BoxDecoration(
-        color: _getContractColor(contractType),
-        shape: BoxShape.circle,
-      ),
-    );
-  }
+
 
   Color _getContractColor(String contractType) {
     switch (contractType.toLowerCase()) {
@@ -1429,98 +1375,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   // Quick Actions for different roles
-  Widget _buildAdminQuickActions(BuildContext context) {
-    return _buildQuickActionsSection(context, 'Admin Actions', [
-      _buildActionButton('Manage Users', Icons.people, AppColors.primary, () => context.go('/users')),
-      _buildActionButton('View Reports', Icons.analytics, AppColors.success, () => context.go('/reports')),
-      _buildActionButton('System Settings', Icons.settings, AppColors.secondary, () => context.go('/settings')),
-      _buildActionButton('Financial', Icons.account_balance, AppColors.accent, () => context.go('/financial')),
-    ]);
-  }
 
-  Widget _buildManagerQuickActions(BuildContext context) {
-    return _buildQuickActionsSection(context, 'Quick Actions', [
-      _buildActionButton('New Operation', Icons.add_business, AppColors.primary, () => context.go('/operations/new')),
-      _buildActionButton('Start Equipment', Icons.play_circle, AppColors.success, () => context.push('/equipment/start')),
-      _buildActionButton('Revenue Entry', Icons.currency_rupee, AppColors.accent, () => context.push('/revenue/add')),
-      _buildActionButton('Equipment Rates', Icons.build_circle, AppColors.warning, () => context.go('/equipment-rates')),
-    ]);
-  }
-
-  Widget _buildSupervisorQuickActions(BuildContext context) {
-    return _buildQuickActionsSection(context, 'Quick Actions', [
-      _buildActionButton('Start Equipment', Icons.play_circle, AppColors.success, () => context.push('/equipment/start')),
-      _buildActionButton('Equipment History', Icons.history, AppColors.info, () => context.push('/equipment/history')),
-      _buildActionButton('End Equipment', Icons.stop_circle, AppColors.error, () => context.push('/equipment/end')),
-      _buildActionButton('Operations', Icons.business, AppColors.primary, () => context.go('/operations')),
-    ]);
-  }
-
-  Widget _buildOperatorQuickActions(BuildContext context) {
-    return _buildQuickActionsSection(context, 'Quick Actions', [
-      _buildActionButton('View Wallet', Icons.account_balance_wallet, AppColors.primary, () => context.go('/wallet')),
-      _buildActionButton('Submit Expense', Icons.receipt_long, AppColors.warning, () => context.go('/expenses/new')),
-      _buildActionButton('Digital Voucher', Icons.camera_alt, AppColors.secondary, () => context.go('/vouchers/new')),
-      _buildActionButton('My Equipment', Icons.build, AppColors.info, () => context.go('/equipment/my')),
-    ]);
-  }
-
-  Widget _buildQuickActionsSection(BuildContext context, String title, List<Widget> actions) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 12),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            return GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 2,
-              childAspectRatio: 3.0, // Increased aspect ratio for action buttons
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              children: actions,
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButton(String title, IconData icon, Color color, VoidCallback onTap) {
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12), // Reduced padding
-          child: Row(
-            children: [
-              Icon(icon, color: color, size: 20), // Reduced icon size
-              const SizedBox(width: 8), // Reduced spacing
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12, // Reduced font size
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   // Additional sections for different roles
   Widget _buildOperatorStatsSection(BuildContext context, WidgetRef ref) {
@@ -2090,5 +1945,621 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       default:
         return Icons.help;
     }
+  }
+
+  // Updated Wallet Section with Action Buttons
+  Widget _buildWalletSection(BuildContext context, WidgetRef ref) {
+    final balanceAsync = ref.watch(walletBalanceProvider);
+    final authState = ref.watch(authStateProvider);
+    final user = authState.user;
+    
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: AppColors.primaryGradient,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: balanceAsync.when(
+        data: (balance) => Row(
+          children: [
+            // Balance Information
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Current Balance',
+                    style: TextStyle(
+                      color: AppColors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '₹${NumberFormat('#,##,###.##').format(balance.balance)}',
+                    style: const TextStyle(
+                      color: AppColors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Last updated: ${DateFormat('MMM dd, yyyy HH:mm').format(balance.lastUpdated)}',
+                    style: TextStyle(
+                      color: AppColors.white.withValues(alpha: 0.8),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Action Circles
+            if (user != null) 
+              _buildWalletActionCircles(context, user),
+          ],
+        ),
+        loading: () => const SizedBox(
+          height: 80,
+          child: Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.white),
+            ),
+          ),
+        ),
+        error: (error, stack) => Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Current Balance',
+                    style: TextStyle(
+                      color: AppColors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Error loading balance',
+                    style: TextStyle(
+                      color: AppColors.white,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (user != null) 
+              _buildWalletActionCircles(context, user),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Wallet Action Circles
+  Widget _buildWalletActionCircles(BuildContext context, User user) {
+    List<Widget> actionCircles = [];
+    
+    if (user.isSupervisor || user.isManager || user.isAdmin) {
+      actionCircles.add(
+        _buildActionCircle(
+          Icons.local_shipping,
+          () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CreateExpenseScreen()),
+          ),
+        ),
+      );
+    }
+    
+    if (user.hasWallet) {
+      actionCircles.add(
+        _buildActionCircle(
+          Icons.receipt_long,
+          () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CreateVoucherScreen()),
+          ),
+        ),
+      );
+    }
+    
+    if (user.isSupervisor || user.isManager) {
+      actionCircles.add(
+        _buildActionCircle(
+          Icons.assignment,
+          () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const MySubmissionsScreen()),
+          ),
+        ),
+      );
+    }
+    
+    return Container(
+      padding: const EdgeInsets.only(left: 12),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: actionCircles.isEmpty 
+          ? []
+          : [
+              for (int i = 0; i < actionCircles.length; i++) ...[
+                actionCircles[i],
+                if (i < actionCircles.length - 1) const SizedBox(height: 8),
+              ],
+            ],
+      ),
+    );
+  }
+
+  Widget _buildActionCircle(IconData icon, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: AppColors.white.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: AppColors.white.withValues(alpha: 0.4),
+            width: 1.5,
+          ),
+        ),
+        child: Icon(
+          icon,
+          color: AppColors.white,
+          size: 24,
+        ),
+      ),
+    );
+  }
+
+  // Important Actions Section
+  Widget _buildImportantActionsSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Quick Actions',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildImportantActionButton(
+                'Start Equipment',
+                Icons.play_circle,
+                AppColors.warning,
+                () => context.push('/equipment/start'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildImportantActionButton(
+                'Add Labour Cost',
+                Icons.group_add,
+                AppColors.success,
+                () => context.push('/labour/add'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildImportantActionButton(String title, IconData icon, Color color, VoidCallback onTap) {
+    return Card(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Icon(icon, color: color, size: 28),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // New Expense Approval Section
+  Widget _buildExpenseApprovalSection(BuildContext context, WidgetRef ref) {
+    final expensesAsync = ref.watch(allExpensesProvider);
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Expense Approvals',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () => context.push('/wallet/expense-approvals'),
+              icon: const Icon(Icons.visibility),
+              label: const Text('View All'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            child: expensesAsync.when(
+              data: (expenses) {
+                final pendingExpenses = expenses.where((e) => e.status == 'submitted').toList();
+                
+                if (pendingExpenses.isEmpty) {
+                  return Column(
+                    children: [
+                      Icon(
+                        Icons.check_circle_outline,
+                        size: 48,
+                        color: Colors.green[400],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No Pending Expense Approvals',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green[600],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'All expenses are processed',
+                        style: TextStyle(
+                          color: Colors.grey[500],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  );
+                }
+                
+                return Column(
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.pending_actions,
+                          color: AppColors.warning,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            '${pendingExpenses.length} expenses awaiting approval',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ...pendingExpenses.take(3).map((expense) => _buildExpenseApprovalItem(expense)),
+                    if (pendingExpenses.length > 3) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        '... and ${pendingExpenses.length - 3} more',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
+              loading: () => const SizedBox(
+                height: 80,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (error, stack) => Column(
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: Colors.red[400],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Failed to load expense approvals',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // New Voucher Approval Section
+  Widget _buildVoucherApprovalSection(BuildContext context, WidgetRef ref) {
+    final vouchersAsync = ref.watch(allVouchersProvider);
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Voucher Approvals',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () => context.push('/wallet/voucher-approvals'),
+              icon: const Icon(Icons.visibility),
+              label: const Text('View All'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            child: vouchersAsync.when(
+              data: (vouchers) {
+                final pendingVouchers = vouchers.where((v) => v.status == 'submitted').toList();
+                
+                if (pendingVouchers.isEmpty) {
+                  return Column(
+                    children: [
+                      Icon(
+                        Icons.check_circle_outline,
+                        size: 48,
+                        color: Colors.green[400],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No Pending Voucher Approvals',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green[600],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'All vouchers are processed',
+                        style: TextStyle(
+                          color: Colors.grey[500],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  );
+                }
+                
+                return Column(
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.receipt_long,
+                          color: AppColors.accent,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            '${pendingVouchers.length} vouchers awaiting approval',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ...pendingVouchers.take(3).map((voucher) => _buildVoucherApprovalItem(voucher)),
+                    if (pendingVouchers.length > 3) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        '... and ${pendingVouchers.length - 3} more',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
+              loading: () => const SizedBox(
+                height: 80,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (error, stack) => Column(
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: Colors.red[400],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Failed to load voucher approvals',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExpenseApprovalItem(PortExpenseStatus expense) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.receipt,
+            color: Colors.orange.shade600,
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                               Text(
+                   expense.description,
+                   style: const TextStyle(
+                     fontWeight: FontWeight.w600,
+                     fontSize: 14,
+                   ),
+                 ),
+                 Text(
+                   '₹${NumberFormat('#,##,###.##').format(expense.totalAmount)} • ${expense.vehicle}',
+                   style: TextStyle(
+                     color: Colors.grey[600],
+                     fontSize: 12,
+                   ),
+                 ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.warning,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Text(
+              'PENDING',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVoucherApprovalItem(VoucherStatus voucher) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.purple.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.purple.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.receipt_long,
+            color: Colors.purple.shade600,
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                               Text(
+                   voucher.expenseCategory,
+                   style: const TextStyle(
+                     fontWeight: FontWeight.w600,
+                     fontSize: 14,
+                   ),
+                 ),
+                 Text(
+                   '₹${NumberFormat('#,##,###.##').format(voucher.amount)} • ${voucher.userName}',
+                   style: TextStyle(
+                     color: Colors.grey[600],
+                     fontSize: 12,
+                   ),
+                 ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.accent,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Text(
+              'PENDING',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 } 
