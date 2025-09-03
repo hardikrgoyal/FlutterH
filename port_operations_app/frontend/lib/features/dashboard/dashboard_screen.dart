@@ -11,7 +11,7 @@ import '../../shared/models/cargo_operation_model.dart';
 import '../auth/auth_service.dart';
 import '../equipment/services/equipment_service.dart';
 import '../operations/operations_service.dart';
-import '../revenue/services/revenue_service.dart';
+
 import '../labour/labour_service.dart';
 import '../../shared/models/labour_cost_model.dart';
 import '../../shared/widgets/app_drawer.dart';
@@ -60,7 +60,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       // Load comprehensive data for admin
       ref.read(equipmentManagementProvider.notifier).loadRunningEquipment();
       ref.read(operationsManagementProvider.notifier).loadOperations();
-      ref.read(revenueStreamProvider.notifier).loadRevenueStreams();
       ref.read(labourCostProvider.notifier).loadLabourCosts();
       
       // Load approval data for admin
@@ -68,15 +67,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ref.invalidate(allVouchersProvider);
     }
 
-    if (user.role == 'manager' || user.role == 'admin') {
-      // Load financial data
-      ref.read(revenueStreamProvider.notifier).loadRevenueStreams();
-      
+    if (user.role == 'manager') {
       // Load approval data for manager
-      if (user.role == 'manager') {
-        ref.invalidate(allExpensesProvider);
-        ref.invalidate(allVouchersProvider);
-      }
+      ref.invalidate(allExpensesProvider);
+      // Removed voucher loading for managers as they don't approve vouchers
     }
   }
 
@@ -134,13 +128,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   List<Widget> _buildAdminDashboard(BuildContext context, WidgetRef ref) {
     return [
-      _buildSystemStatsSection(context, ref),
-      const SizedBox(height: 16),
       _buildWalletSection(context, ref),
       const SizedBox(height: 16),
       _buildImportantActionsSection(context),
-      const SizedBox(height: 16),
-      _buildFinancialOverviewSection(context, ref),
       const SizedBox(height: 16),
       _buildRunningEquipmentSection(context, ref, showStopButtons: false),
       const SizedBox(height: 16),
@@ -165,10 +155,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       _buildLabourDetailsByShiftsSection(context, ref),
       const SizedBox(height: 16),
       _buildExpenseApprovalSection(context, ref),
-      const SizedBox(height: 16),
-      _buildVoucherApprovalSection(context, ref),
-      const SizedBox(height: 16),
-      _buildFinancialSummarySection(context, ref),
     ];
   }
 
@@ -1022,67 +1008,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  // System Stats for Admin
-  Widget _buildSystemStatsSection(BuildContext context, WidgetRef ref) {
-    final operationsState = ref.watch(operationsManagementProvider);
-    final equipmentState = ref.watch(equipmentManagementProvider);
-    final revenueState = ref.watch(revenueStreamProvider);
-    
-    final totalRevenue = revenueState.revenueStreams.fold<double>(
-      0.0, (sum, stream) => sum + (double.tryParse(stream.amount ?? '0') ?? 0.0)
-    );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'System Overview',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 12),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            return GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 2,
-              childAspectRatio: 2.0, // Increased aspect ratio to give more width
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              children: [
-                _buildStatCard(
-                  'Total Operations',
-                  '${operationsState.operations.length}',
-                  Icons.business,
-                  AppColors.primary,
-                ),
-                _buildStatCard(
-                  'Running Equipment',
-                  '${equipmentState.runningEquipment.length}',
-                  MdiIcons.crane,
-                  AppColors.warning,
-                ),
-                _buildStatCard(
-                  'Total Revenue',
-                  '₹${NumberFormat('#,##,###').format(totalRevenue)}',
-                  Icons.currency_rupee,
-                  AppColors.success,
-                ),
-                _buildStatCard(
-                  'Revenue Streams',
-                  '${revenueState.revenueStreams.length}',
-                  Icons.trending_up,
-                  AppColors.info,
-                ),
-              ],
-            );
-          },
-        ),
-      ],
-    );
-  }
 
   // Operations Stats for Manager
   Widget _buildOperationsStatsSection(BuildContext context, WidgetRef ref) {
@@ -1174,108 +1100,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  // Financial Overview for Admin
-  Widget _buildFinancialOverviewSection(BuildContext context, WidgetRef ref) {
-    final revenueState = ref.watch(revenueStreamProvider);
-    
-    final totalRevenue = revenueState.revenueStreams.fold<double>(
-      0.0, (sum, stream) => sum + (double.tryParse(stream.amount ?? '0') ?? 0.0)
-    );
 
-    return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-        Text(
-          'Financial Overview',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-                      children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Total Revenue',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      Text(
-                        '₹${NumberFormat('#,##,###').format(totalRevenue)}',
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: AppColors.success,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'From ${revenueState.revenueStreams.length} revenue streams',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                        Icon(
-                  Icons.trending_up,
-                  color: AppColors.success,
-                  size: 48,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
-  // Financial Summary for Manager
-  Widget _buildFinancialSummarySection(BuildContext context, WidgetRef ref) {
-    final revenueState = ref.watch(revenueStreamProvider);
-    
-    final totalRevenue = revenueState.revenueStreams.fold<double>(
-      0.0, (sum, stream) => sum + (double.tryParse(stream.amount ?? '0') ?? 0.0)
-    );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-                        Text(
-          'Financial Summary',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                'Total Revenue',
-                '₹${NumberFormat('#,##,###').format(totalRevenue)}',
-                Icons.currency_rupee,
-                AppColors.success,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildStatCard(
-                'Revenue Streams',
-                '${revenueState.revenueStreams.length}',
-                Icons.trending_up,
-                AppColors.info,
-                          ),
-                        ),
-                      ],
-                    ),
-      ],
-    );
-  }
 
   // Today's Operations
   Widget _buildTodaysOperationsSection(BuildContext context, WidgetRef ref) {

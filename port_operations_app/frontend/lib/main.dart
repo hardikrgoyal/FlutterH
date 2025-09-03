@@ -12,7 +12,7 @@ import 'features/equipment/screens/end_equipment_screen.dart';
 import 'features/equipment/screens/equipment_history_screen.dart';
 import 'features/equipment/screens/equipment_detail_screen.dart';
 import 'features/equipment/screens/equipment_edit_screen.dart';
-import 'features/financial/financial_screen.dart';
+
 import 'features/wallet/wallet_screen.dart';
 import 'features/users/users_screen.dart';
 import 'features/labour/screens/labour_cost_list_screen.dart';
@@ -26,9 +26,7 @@ import 'features/transport/screens/transport_detail_screen.dart';
 import 'features/miscellaneous/screens/miscellaneous_list_screen.dart';
 import 'features/miscellaneous/screens/miscellaneous_form_screen.dart';
 import 'features/miscellaneous/screens/miscellaneous_detail_screen.dart';
-import 'features/revenue/screens/revenue_list_screen.dart';
-import 'features/revenue/screens/revenue_form_screen.dart';
-import 'features/revenue/screens/revenue_detail_screen.dart';
+
 import 'features/wallet/screens/expense_approvals_screen.dart';
 import 'features/wallet/screens/voucher_approvals_screen.dart';
 import 'features/wallet/screens/wallet_management_screen.dart';
@@ -113,7 +111,7 @@ class PortOperationsApp extends ConsumerWidget {
           name: 'dashboard',
           builder: (context, state) => const DashboardScreen(),
         ),
-        // TODO: Add more routes for operations, financial modules, etc.
+        // TODO: Add more routes for operations, etc.
         GoRoute(
           path: '/operations',
           name: 'operations',
@@ -168,11 +166,7 @@ class PortOperationsApp extends ConsumerWidget {
             return EquipmentEditScreen(equipmentId: id);
           },
         ),
-        GoRoute(
-          path: '/financial',
-          name: 'financial',
-          builder: (context, state) => const FinancialScreen(),
-        ),
+
         GoRoute(
           path: '/wallet',
           name: 'wallet',
@@ -291,42 +285,13 @@ class PortOperationsApp extends ConsumerWidget {
           name: 'equipment-rates',
           builder: (context, state) => const EquipmentRateMasterListScreen(),
         ),
-        GoRoute(
-          path: '/revenue',
-          name: 'revenue',
-          builder: (context, state) => const RevenueListScreen(),
-        ),
-        GoRoute(
-          path: '/revenue/add',
-          name: 'revenue-add',
-          builder: (context, state) => const RevenueFormScreen(),
-        ),
-        GoRoute(
-          path: '/revenue/:id/detail',
-          name: 'revenue-detail',
-          builder: (context, state) {
-            final id = int.parse(state.pathParameters['id']!);
-            return RevenueDetailScreen(streamId: id);
-          },
-        ),
-        GoRoute(
-          path: '/revenue/:id/edit',
-          name: 'revenue-edit',
-          builder: (context, state) {
-            final id = int.parse(state.pathParameters['id']!);
-            return RevenueFormScreen(streamId: id);
-          },
-        ),
+
         GoRoute(
           path: '/tally',
           name: 'tally',
           builder: (context, state) => const _PlaceholderScreen(title: 'Tally Integration'),
         ),
-        GoRoute(
-          path: '/reports',
-          name: 'reports',
-          builder: (context, state) => const _PlaceholderScreen(title: 'Reports'),
-        ),
+
         GoRoute(
           path: '/profile',
           name: 'profile',

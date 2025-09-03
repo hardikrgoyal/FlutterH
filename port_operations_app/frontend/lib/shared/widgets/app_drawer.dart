@@ -142,14 +142,6 @@ class AppDrawer extends ConsumerWidget {
             context.go('/settings');
           },
         ),
-        ListTile(
-          leading: const Icon(Icons.help, color: AppColors.textSecondary),
-          title: const Text('Help & Support'),
-          onTap: () {
-            Navigator.pop(context);
-            // TODO: Navigate to help
-          },
-        ),
         const Divider(),
         ListTile(
           leading: const Icon(Icons.logout, color: AppColors.error),
@@ -264,15 +256,6 @@ class AppDrawer extends ConsumerWidget {
             },
           },
           {
-            'title': 'Revenue Streams',
-            'icon': Icons.account_balance_wallet,
-            'color': AppColors.success,
-            'onTap': () {
-              Navigator.pop(context);
-              context.go('/revenue');
-            },
-          },
-          {
             'title': 'Wallet',
             'icon': Icons.account_balance_wallet,
             'color': AppColors.success,
@@ -297,24 +280,6 @@ class AppDrawer extends ConsumerWidget {
             'onTap': () {
               Navigator.pop(context);
               context.go('/voucher-approvals');
-            },
-          },
-          {
-            'title': 'Financial',
-            'icon': Icons.currency_rupee,
-            'color': AppColors.success,
-            'onTap': () {
-              Navigator.pop(context);
-              context.go('/financial');
-            },
-          },
-          {
-            'title': 'Reports',
-            'icon': Icons.analytics,
-            'color': AppColors.accent,
-            'onTap': () {
-              Navigator.pop(context);
-              context.go('/reports');
             },
           },
         ];
@@ -412,15 +377,6 @@ class AppDrawer extends ConsumerWidget {
               context.go('/approvals');
             },
           },
-          {
-            'title': 'Revenue Streams',
-            'icon': Icons.currency_rupee,
-            'color': AppColors.success,
-            'onTap': () {
-              Navigator.pop(context);
-              context.go('/revenue');
-            },
-          },
         ];
 
       case 'supervisor':
@@ -462,24 +418,6 @@ class AppDrawer extends ConsumerWidget {
               context.go('/wallet');
             },
           },
-          {
-            'title': 'Port Expenses',
-            'icon': Icons.receipt_long,
-            'color': AppColors.warning,
-            'onTap': () {
-              Navigator.pop(context);
-              context.go('/expenses');
-            },
-          },
-          {
-            'title': 'Digital Vouchers',
-            'icon': Icons.camera_alt,
-            'color': AppColors.secondary,
-            'onTap': () {
-              Navigator.pop(context);
-              context.go('/vouchers');
-            },
-          },
         ];
 
       case 'accountant':
@@ -519,15 +457,6 @@ class AppDrawer extends ConsumerWidget {
             'onTap': () {
               Navigator.pop(context);
               context.go('/labour');
-            },
-          },
-          {
-            'title': 'Revenue Streams',
-            'icon': Icons.currency_rupee,
-            'color': AppColors.success,
-            'onTap': () {
-              Navigator.pop(context);
-              context.go('/revenue');
             },
           },
           {
