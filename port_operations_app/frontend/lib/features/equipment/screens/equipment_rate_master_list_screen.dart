@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../models/equipment_rate_master_model.dart';
 import '../services/equipment_rate_master_service.dart';
+import '../services/equipment_service.dart';
 import '../../../shared/models/vehicle_type_model.dart';
 import '../../../shared/models/work_type_model.dart';
 import '../../../shared/models/party_master_model.dart';
@@ -30,13 +30,36 @@ class _EquipmentRateMasterListScreenState
   int? _selectedWorkTypeId;
 
   final List<String> _contractTypes = ['hours', 'shift', 'tonnes', 'fixed'];
+  
+  // Master data
+  List<PartyMaster> _parties = [];
+  List<VehicleType> _vehicleTypes = [];
+  List<WorkType> _workTypes = [];
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadMasterData();
       _loadData();
     });
+  }
+
+  void _loadMasterData() async {
+    try {
+      final equipmentService = ref.read(equipmentManagementProvider.notifier);
+      final parties = await equipmentService.getParties();
+      final vehicleTypes = await equipmentService.getVehicleTypes();
+      final workTypes = await equipmentService.getWorkTypes();
+      
+      setState(() {
+        _parties = parties;
+        _vehicleTypes = vehicleTypes;
+        _workTypes = workTypes;
+      });
+    } catch (e) {
+      // Silently fail for master data loading - not critical
+    }
   }
 
   void _loadData() {
@@ -140,6 +163,27 @@ class _EquipmentRateMasterListScreenState
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
+                      // Party filter
+                      _buildFilterChip(
+                        'Party',
+                        _getSelectedPartyName() ?? 'All',
+                        () => _showPartyFilter(),
+                      ),
+                      const SizedBox(width: 8),
+                      // Vehicle Type filter
+                      _buildFilterChip(
+                        'Vehicle Type',
+                        _getSelectedVehicleTypeName() ?? 'All',
+                        () => _showVehicleTypeFilter(),
+                      ),
+                      const SizedBox(width: 8),
+                      // Work Type filter
+                      _buildFilterChip(
+                        'Work Type',
+                        _getSelectedWorkTypeName() ?? 'All',
+                        () => _showWorkTypeFilter(),
+                      ),
+                      const SizedBox(width: 8),
                       // Contract Type filter
                       _buildFilterChip(
                         'Contract Type',
@@ -379,6 +423,151 @@ class _EquipmentRateMasterListScreenState
     }
   }
 
+  // Helper methods to get selected filter names
+  String? _getSelectedPartyName() {
+    if (_selectedPartyId == null) return null;
+    final party = _parties.firstWhere(
+      (p) => p.id == _selectedPartyId,
+      orElse: () => PartyMaster(id: 0, name: 'Unknown', isActive: true, createdBy: 0, createdAt: ''),
+    );
+    return party.name;
+  }
+
+  String? _getSelectedVehicleTypeName() {
+    if (_selectedVehicleTypeId == null) return null;
+    final vehicleType = _vehicleTypes.firstWhere(
+      (vt) => vt.id == _selectedVehicleTypeId,
+      orElse: () => VehicleType(id: 0, name: 'Unknown', isActive: true, createdBy: 0, createdAt: ''),
+    );
+    return vehicleType.name;
+  }
+
+  String? _getSelectedWorkTypeName() {
+    if (_selectedWorkTypeId == null) return null;
+    final workType = _workTypes.firstWhere(
+      (wt) => wt.id == _selectedWorkTypeId,
+      orElse: () => WorkType(id: 0, name: 'Unknown', isActive: true, createdBy: 0, createdAt: ''),
+    );
+    return workType.name;
+  }
+
+  void _showPartyFilter() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Select Party',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              title: const Text('All'),
+              onTap: () {
+                setState(() {
+                  _selectedPartyId = null;
+                });
+                _loadData();
+                Navigator.pop(context);
+              },
+            ),
+            ..._parties.map((party) => ListTile(
+                  title: Text(party.name),
+                  onTap: () {
+                    setState(() {
+                      _selectedPartyId = party.id;
+                    });
+                    _loadData();
+                    Navigator.pop(context);
+                  },
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showVehicleTypeFilter() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Select Vehicle Type',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              title: const Text('All'),
+              onTap: () {
+                setState(() {
+                  _selectedVehicleTypeId = null;
+                });
+                _loadData();
+                Navigator.pop(context);
+              },
+            ),
+            ..._vehicleTypes.map((vehicleType) => ListTile(
+                  title: Text(vehicleType.name),
+                  onTap: () {
+                    setState(() {
+                      _selectedVehicleTypeId = vehicleType.id;
+                    });
+                    _loadData();
+                    Navigator.pop(context);
+                  },
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showWorkTypeFilter() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Select Work Type',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              title: const Text('All'),
+              onTap: () {
+                setState(() {
+                  _selectedWorkTypeId = null;
+                });
+                _loadData();
+                Navigator.pop(context);
+              },
+            ),
+            ..._workTypes.map((workType) => ListTile(
+                  title: Text(workType.name),
+                  onTap: () {
+                    setState(() {
+                      _selectedWorkTypeId = workType.id;
+                    });
+                    _loadData();
+                    Navigator.pop(context);
+                  },
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showContractTypeFilter() {
     showModalBottomSheet(
       context: context,
@@ -524,18 +713,41 @@ class _EquipmentRateMasterDialogState
   String? _selectedContractType;
 
   bool _isLoading = false;
+  
+  // Master data
+  List<PartyMaster> _parties = [];
+  List<VehicleType> _vehicleTypes = [];
+  List<WorkType> _workTypes = [];
 
   final List<String> _contractTypes = ['hours', 'shift', 'tonnes', 'fixed'];
 
   @override
   void initState() {
     super.initState();
+    _loadMasterData();
     if (widget.rateMaster != null) {
       _selectedPartyId = widget.rateMaster!.party;
       _selectedVehicleTypeId = widget.rateMaster!.vehicleType;
       _selectedWorkTypeId = widget.rateMaster!.workType;
       _selectedContractType = widget.rateMaster!.contractType;
       _rateController.text = widget.rateMaster!.rate;
+    }
+  }
+
+  void _loadMasterData() async {
+    try {
+      final equipmentService = ref.read(equipmentManagementProvider.notifier);
+      final parties = await equipmentService.getParties();
+      final vehicleTypes = await equipmentService.getVehicleTypes();
+      final workTypes = await equipmentService.getWorkTypes();
+      
+      setState(() {
+        _parties = parties;
+        _vehicleTypes = vehicleTypes;
+        _workTypes = workTypes;
+      });
+    } catch (e) {
+      // Silently fail for master data loading - not critical
     }
   }
 
@@ -550,7 +762,76 @@ class _EquipmentRateMasterDialogState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Party Dropdown (simplified for demo)
+              // Party Dropdown
+              DropdownButtonFormField<int>(
+                value: _selectedPartyId,
+                decoration: const InputDecoration(
+                  labelText: 'Party Name',
+                  border: OutlineInputBorder(),
+                ),
+                items: _parties.map((party) {
+                  return DropdownMenuItem(
+                    value: party.id,
+                    child: Text(party.name),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedPartyId = value;
+                  });
+                },
+                validator: (value) =>
+                    value == null ? 'Please select party' : null,
+              ),
+              const SizedBox(height: 16),
+
+              // Vehicle Type Dropdown
+              DropdownButtonFormField<int>(
+                value: _selectedVehicleTypeId,
+                decoration: const InputDecoration(
+                  labelText: 'Vehicle Type',
+                  border: OutlineInputBorder(),
+                ),
+                items: _vehicleTypes.map((vehicleType) {
+                  return DropdownMenuItem(
+                    value: vehicleType.id,
+                    child: Text(vehicleType.name),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedVehicleTypeId = value;
+                  });
+                },
+                validator: (value) =>
+                    value == null ? 'Please select vehicle type' : null,
+              ),
+              const SizedBox(height: 16),
+
+              // Work Type Dropdown
+              DropdownButtonFormField<int>(
+                value: _selectedWorkTypeId,
+                decoration: const InputDecoration(
+                  labelText: 'Work Type',
+                  border: OutlineInputBorder(),
+                ),
+                items: _workTypes.map((workType) {
+                  return DropdownMenuItem(
+                    value: workType.id,
+                    child: Text(workType.name),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedWorkTypeId = value;
+                  });
+                },
+                validator: (value) =>
+                    value == null ? 'Please select work type' : null,
+              ),
+              const SizedBox(height: 16),
+              
+              // Contract Type Dropdown
               DropdownButtonFormField<String>(
                 value: _selectedContractType,
                 decoration: const InputDecoration(
@@ -632,24 +913,25 @@ class _EquipmentRateMasterDialogState
 
     bool success = false;
     if (widget.rateMaster == null) {
-      // For demo purposes, using placeholder values for party, vehicle type, work type
+      // Create new rate master with all selected values
       success = await ref
           .read(equipmentRateMasterServiceProvider.notifier)
           .createEquipmentRateMaster(
-            partyId: 1, // Placeholder
-            vehicleTypeId: 1, // Placeholder
-            workTypeId: 1, // Placeholder
+            partyId: _selectedPartyId!,
+            vehicleTypeId: _selectedVehicleTypeId!,
+            workTypeId: _selectedWorkTypeId!,
             contractType: _selectedContractType!,
             rate: rate,
           );
     } else {
+      // Update existing rate master with all selected values
       success = await ref
           .read(equipmentRateMasterServiceProvider.notifier)
           .updateEquipmentRateMaster(
             id: widget.rateMaster!.id,
-            partyId: widget.rateMaster!.party,
-            vehicleTypeId: widget.rateMaster!.vehicleType,
-            workTypeId: widget.rateMaster!.workType,
+            partyId: _selectedPartyId!,
+            vehicleTypeId: _selectedVehicleTypeId!,
+            workTypeId: _selectedWorkTypeId!,
             contractType: _selectedContractType!,
             rate: rate,
           );
