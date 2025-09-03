@@ -54,7 +54,7 @@ class _OperationsScreenState extends ConsumerState<OperationsScreen> {
         ],
       ),
       drawer: const AppDrawer(),
-      floatingActionButton: user.isManager || user.isAdmin
+      floatingActionButton: user.canCreateOperations
           ? FloatingActionButton(
               onPressed: () => context.go('/operations/new'),
               child: const Icon(Icons.add),
@@ -255,6 +255,9 @@ class _OperationsScreenState extends ConsumerState<OperationsScreen> {
   }
 
   Widget _buildOperationCard(CargoOperation operation) {
+    final authState = ref.watch(authStateProvider);
+    final user = authState.user;
+    
     return Card(
       child: InkWell(
         onTap: () {
@@ -290,21 +293,39 @@ class _OperationsScreenState extends ConsumerState<OperationsScreen> {
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-                    ),
-                    child: Text(
-                      operation.displayCargoType.toUpperCase(),
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                        ),
+                        child: Text(
+                          operation.displayCargoType.toUpperCase(),
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    ),
+                      // Add edit button for admin and manager users
+                      if (user != null && user.canEditOperations) ...[
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.edit),
+                          iconSize: 20,
+                          color: AppColors.primary,
+                          onPressed: () {
+                            context.go('/operations/${operation.id}/edit');
+                          },
+                          tooltip: 'Edit Operation',
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),

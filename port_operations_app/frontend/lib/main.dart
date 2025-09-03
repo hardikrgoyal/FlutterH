@@ -5,6 +5,7 @@ import 'features/auth/login_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/operations/operations_screen.dart';
 import 'features/operations/create_operation_screen.dart';
+import 'features/operations/edit_operation_screen.dart';
 import 'features/equipment/equipment_screen.dart';
 import 'features/equipment/screens/start_equipment_screen.dart';
 import 'features/equipment/screens/end_equipment_screen.dart';
@@ -122,6 +123,14 @@ class PortOperationsApp extends ConsumerWidget {
           path: '/operations/new',
           name: 'operations-new',
           builder: (context, state) => const CreateOperationScreen(),
+        ),
+        GoRoute(
+          path: '/operations/:id/edit',
+          name: 'operations-edit',
+          builder: (context, state) {
+            final id = int.parse(state.pathParameters['id']!);
+            return EditOperationScreen(operationId: id);
+          },
         ),
         GoRoute(
           path: '/equipment',
