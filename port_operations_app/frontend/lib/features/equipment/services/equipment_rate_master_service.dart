@@ -84,7 +84,11 @@ class EquipmentRateMasterService extends StateNotifier<EquipmentRateMasterState>
     required int vehicleTypeId,
     required int workTypeId,
     required String contractType,
+    required String unit,
     required double rate,
+    required DateTime effectiveFrom,
+    DateTime? validUntil,
+    String? notes,
   }) async {
     try {
       final data = {
@@ -92,7 +96,11 @@ class EquipmentRateMasterService extends StateNotifier<EquipmentRateMasterState>
         'vehicle_type': vehicleTypeId,
         'work_type': workTypeId,
         'contract_type': contractType,
+        'unit': unit,
         'rate': rate,
+        'effective_from': effectiveFrom.toIso8601String().split('T')[0], // YYYY-MM-DD format
+        if (validUntil != null) 'valid_until': validUntil.toIso8601String().split('T')[0],
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
         'is_active': true,
       };
 
@@ -122,7 +130,11 @@ class EquipmentRateMasterService extends StateNotifier<EquipmentRateMasterState>
     required int vehicleTypeId,
     required int workTypeId,
     required String contractType,
+    required String unit,
     required double rate,
+    required DateTime effectiveFrom,
+    DateTime? validUntil,
+    String? notes,
     bool? isActive,
   }) async {
     try {
@@ -131,7 +143,11 @@ class EquipmentRateMasterService extends StateNotifier<EquipmentRateMasterState>
         'vehicle_type': vehicleTypeId,
         'work_type': workTypeId,
         'contract_type': contractType,
+        'unit': unit,
         'rate': rate,
+        'effective_from': effectiveFrom.toIso8601String().split('T')[0], // YYYY-MM-DD format
+        if (validUntil != null) 'valid_until': validUntil.toIso8601String().split('T')[0],
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
         if (isActive != null) 'is_active': isActive,
       };
 

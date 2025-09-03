@@ -95,13 +95,18 @@ class EquipmentRateMasterSerializer(serializers.ModelSerializer):
     vehicle_type_name = serializers.CharField(source='vehicle_type.name', read_only=True)
     work_type_name = serializers.CharField(source='work_type.name', read_only=True)
     contract_type_display = serializers.CharField(source='get_contract_type_display', read_only=True)
+    unit_display = serializers.CharField(read_only=True)
+    validity_status = serializers.CharField(read_only=True)
+    is_currently_valid = serializers.BooleanField(read_only=True)
     
     class Meta:
         model = EquipmentRateMaster
         fields = [
             'id', 'party', 'party_name', 'vehicle_type', 'vehicle_type_name', 
             'work_type', 'work_type_name', 'contract_type', 'contract_type_display',
-            'rate', 'is_active', 'created_by', 'created_by_name', 'created_at', 'updated_at'
+            'unit', 'unit_display', 'rate', 'effective_from', 'valid_until', 'notes',
+            'validity_status', 'is_currently_valid', 'is_active', 'created_by', 
+            'created_by_name', 'created_at', 'updated_at'
         ]
         read_only_fields = ['created_by', 'created_at', 'updated_at']
 

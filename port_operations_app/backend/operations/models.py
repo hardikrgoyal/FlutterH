@@ -252,22 +252,57 @@ class EquipmentRateMaster(models.Model):
     """
     Master data for equipment rates based on party, vehicle type, work type, and contract type
     """
+    UNIT_CHOICES = [
+        ('per_hour', 'Per Hour'),
+        ('per_shift', 'Per Shift'),
+        ('per_tonne', 'Per Tonne'),
+        ('fixed_rate', 'Fixed Rate'),
+        ('per_day', 'Per Day'),
+        ('per_trip', 'Per Trip'),
+    ]
+    
     party = models.ForeignKey(PartyMaster, on_delete=models.CASCADE)
     vehicle_type = models.ForeignKey(VehicleType, on_delete=models.CASCADE) 
     work_type = models.ForeignKey(WorkType, on_delete=models.CASCADE)
     contract_type = models.CharField(max_length=20, choices=Equipment.CONTRACT_TYPE_CHOICES)
+    unit = models.CharField(max_length=20, choices=UNIT_CHOICES, default='per_hour')
     rate = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
+    effective_from = models.DateField(default=timezone.now)
+    valid_until = models.DateField(blank=True, null=True, help_text='Leave blank for indefinite validity')
+    notes = models.TextField(blank=True, help_text='Additional notes or conditions')
     is_active = models.BooleanField(default=True)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        unique_together = ['party', 'vehicle_type', 'work_type', 'contract_type']
-        ordering = ['party__name', 'vehicle_type__name', 'work_type__name', 'contract_type']
+        unique_together = ['party', 'vehicle_type', 'work_type', 'contract_type', 'effective_from']
+        ordering = ['party__name', 'vehicle_type__name', 'work_type__name', 'contract_type', '-effective_from']
     
     def __str__(self):
         return f"{self.party.name} - {self.vehicle_type.name} - {self.work_type.name} - {self.get_contract_type_display()} - ₹{self.rate}"
+
+    @property
+    def unit_display(self):
+        return self.get_unit_display()
+
+    @property
+    def validity_status(self):
+        if not self.valid_until:
+            return 'indefinite'
+        if self.valid_until < timezone.now().date():
+            return 'expired'
+        return 'valid'
+
+    @property
+    def is_currently_valid(self):
+        if not self.is_active:
+            return False
+        if self.effective_from > timezone.now().date():
+            return False
+        if self.valid_until and self.valid_until < timezone.now().date():
+            return False
+        return True
 
 class RateMaster(models.Model):
     """

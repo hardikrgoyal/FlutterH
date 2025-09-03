@@ -921,7 +921,9 @@ class _EquipmentRateMasterDialogState
             vehicleTypeId: _selectedVehicleTypeId!,
             workTypeId: _selectedWorkTypeId!,
             contractType: _selectedContractType!,
+            unit: 'per_hour', // Default unit
             rate: rate,
+            effectiveFrom: DateTime.now(), // Default to today
           );
     } else {
       // Update existing rate master with all selected values
@@ -933,7 +935,9 @@ class _EquipmentRateMasterDialogState
             vehicleTypeId: _selectedVehicleTypeId!,
             workTypeId: _selectedWorkTypeId!,
             contractType: _selectedContractType!,
+            unit: 'per_hour', // Default unit
             rate: rate,
+            effectiveFrom: DateTime.now(), // Default to today
           );
     }
 
