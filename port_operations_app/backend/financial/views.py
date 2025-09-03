@@ -170,34 +170,15 @@ class ApproveExpenseView(generics.UpdateAPIView):
             expense.status = 'finalized'
             expense.approved_by = user
             
-            # Create wallet debit transaction when expense is finalized
-            from .models import Wallet, TallyLog
-            existing_transaction = Wallet.objects.filter(
-                user=expense.user,
-                reference='expense',
-                reference_id=str(expense.id)
-            ).first()
-            
-            if not existing_transaction:
-                Wallet.objects.create(
-                    user=expense.user,
-                    action='debit',
-                    amount=expense.total_amount,
-                    reference='expense',
-                    reference_id=str(expense.id),
-                    approved_by=user,
-                    description=f"Port expense - {expense.description}"
-                )
-                
-                # Create Tally log entry for finalized expense
-                TallyLog.objects.create(
-                    entry_type='expense',
-                    reference_id=str(expense.id),
-                    tally_voucher_number=f"PE{expense.id:06d}",  # Generate PE000001 format
-                    amount=expense.total_amount,
-                    description=f"Port expense - {expense.description}",
-                    logged_by=user
-                )
+            # Create Tally log entry for finalized expense (wallet already debited during approval)
+            TallyLog.objects.create(
+                entry_type='expense',
+                reference_id=str(expense.id),
+                tally_voucher_number=f"PE{expense.id:06d}",  # Generate PE000001 format
+                amount=expense.total_amount,
+                description=f"Port expense - {expense.description}",
+                logged_by=user
+            )
             
         elif action == 'reject':
             expense.status = 'rejected'
@@ -606,6 +587,18 @@ class BulkApprovalView(generics.GenericAPIView):
                             expense.status = 'finalized'
                             expense.approved_by = user
                             expense.save()
+                            
+                            # Create Tally log entry for finalized expense (wallet already debited during approval)
+                            from .models import TallyLog
+                            TallyLog.objects.create(
+                                entry_type='expense',
+                                reference_id=str(expense.id),
+                                tally_voucher_number=f"PE{expense.id:06d}",  # Generate PE000001 format
+                                amount=expense.total_amount,
+                                description=f"Port expense - {expense.description}",
+                                logged_by=user
+                            )
+                            
                             results.append({'id': expense.id, 'status': 'finalized'})
                         else:
                             results.append({'id': expense.id, 'error': 'Must be approved before finalizing'})

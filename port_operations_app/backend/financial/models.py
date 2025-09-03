@@ -131,8 +131,8 @@ class PortExpense(models.Model):
         
         super().save(*args, **kwargs)
         
-        # Auto-debit wallet when approved by accountant
-        if self.status == 'finalized' and self.approved_by:
+        # Auto-debit wallet when approved by admin/manager
+        if self.status == 'approved' and self.reviewed_by:
             # Check if wallet transaction already exists
             existing_transaction = Wallet.objects.filter(
                 user=self.user,
@@ -147,7 +147,7 @@ class PortExpense(models.Model):
                     amount=self.total_amount,
                     reference='expense',
                     reference_id=str(self.id),
-                    approved_by=self.approved_by,
+                    approved_by=self.reviewed_by,
                     description=f"Port expense - {self.vehicle} {self.vehicle_number}"
                 )
     
@@ -197,8 +197,8 @@ class DigitalVoucher(models.Model):
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         
-        # Auto-debit wallet when logged by accountant
-        if self.status == 'logged' and self.logged_by:
+        # Auto-debit wallet when approved by admin
+        if self.status == 'approved' and self.approved_by:
             # Check if wallet transaction already exists
             existing_transaction = Wallet.objects.filter(
                 user=self.user,
@@ -213,7 +213,7 @@ class DigitalVoucher(models.Model):
                     amount=self.amount,
                     reference='voucher',
                     reference_id=str(self.id),
-                    approved_by=self.logged_by,
+                    approved_by=self.approved_by,
                     description=f"Digital voucher - {self.expense_category}"
                 )
     
