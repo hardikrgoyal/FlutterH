@@ -5,6 +5,8 @@ from . import views
 router = DefaultRouter()
 router.register(r'cargo-operations', views.CargoOperationViewSet)
 router.register(r'vehicle-types', views.VehicleTypeViewSet)
+router.register(r'vehicles', views.VehicleViewSet)
+router.register(r'vehicle-documents', views.VehicleDocumentViewSet)
 router.register(r'work-types', views.WorkTypeViewSet)
 router.register(r'party-master', views.PartyMasterViewSet)
 router.register(r'contractor-master', views.ContractorMasterViewSet)

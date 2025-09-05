@@ -12,6 +12,7 @@ import 'features/equipment/screens/end_equipment_screen.dart';
 import 'features/equipment/screens/equipment_history_screen.dart';
 import 'features/equipment/screens/equipment_detail_screen.dart';
 import 'features/equipment/screens/equipment_edit_screen.dart';
+import 'features/vehicles/screens/vehicle_documents_screen.dart';
 
 import 'features/wallet/wallet_screen.dart';
 import 'features/users/users_screen.dart';
@@ -284,6 +285,11 @@ class PortOperationsApp extends ConsumerWidget {
           path: '/equipment-rates',
           name: 'equipment-rates',
           builder: (context, state) => const EquipmentRateMasterListScreen(),
+        ),
+        GoRoute(
+          path: '/vehicle-documents',
+          name: 'vehicle-documents',
+          builder: (context, state) => const VehicleDocumentsScreen(),
         ),
 
         GoRoute(

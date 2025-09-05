@@ -117,18 +117,21 @@ def user_permissions(request):
             'manage_users', 'approve_data', 'configure_rates',
             'create_operations', 'manage_operations', 'enter_expenses',
             'field_data_entry', 'view_wallet', 'submit_vouchers',
-            'approve_financial', 'topup_wallets', 'log_tally', 'enter_revenue'
+            'approve_financial', 'topup_wallets', 'log_tally', 'enter_revenue',
+            'manage_vehicle_documents', 'view_vehicle_documents'
         ],
         'manager': [
             'create_operations', 'manage_operations', 'approve_supervisor_entries',
-            'enter_expenses', 'configure_rates', 'enter_revenue'
+            'enter_expenses', 'configure_rates', 'enter_revenue',
+            'manage_vehicle_documents', 'view_vehicle_documents'
         ],
         'supervisor': [
             'field_data_entry', 'view_wallet', 'submit_vouchers',
-            'start_equipment', 'end_equipment'
+            'start_equipment', 'end_equipment', 'view_vehicle_documents'
         ],
         'accountant': [
-            'approve_financial', 'topup_wallets', 'log_tally', 'enter_revenue'
+            'approve_financial', 'topup_wallets', 'log_tally', 'enter_revenue',
+            'manage_vehicle_documents', 'view_vehicle_documents'
         ]
     }
     

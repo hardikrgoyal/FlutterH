@@ -4,6 +4,7 @@ from django.core.validators import MinValueValidator
 from decimal import Decimal
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+import os
 
 User = get_user_model()
 
@@ -59,6 +60,169 @@ class VehicleType(models.Model):
     
     class Meta:
         ordering = ['name']
+
+class Vehicle(models.Model):
+    """
+    Master data for individual vehicles
+    """
+    OWNERSHIP_CHOICES = [
+        ('owned', 'Company Owned'),
+        ('hired', 'Hired/Contract'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('maintenance', 'Under Maintenance'),
+    ]
+    
+    vehicle_number = models.CharField(max_length=20, unique=True)
+    vehicle_type = models.ForeignKey(VehicleType, on_delete=models.CASCADE)
+    ownership = models.CharField(max_length=20, choices=OWNERSHIP_CHOICES, default='hired')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    owner_name = models.CharField(max_length=100, blank=True, null=True, help_text="Owner name for hired vehicles")
+    owner_contact = models.CharField(max_length=15, blank=True, null=True)
+    capacity = models.CharField(max_length=50, blank=True, null=True, help_text="Vehicle capacity (e.g., 10 MT, 25 CBM)")
+    make_model = models.CharField(max_length=100, blank=True, null=True, help_text="Vehicle make and model")
+    year_of_manufacture = models.PositiveIntegerField(blank=True, null=True)
+    chassis_number = models.CharField(max_length=50, blank=True, null=True)
+    engine_number = models.CharField(max_length=50, blank=True, null=True)
+    remarks = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def save(self, *args, **kwargs):
+        # Convert vehicle number to uppercase
+        if self.vehicle_number:
+            self.vehicle_number = self.vehicle_number.upper()
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return f"{self.vehicle_number} ({self.vehicle_type.name})"
+    
+    @property
+    def active_documents_count(self):
+        return self.documents.filter(status='active').count()
+    
+    @property
+    def expired_documents_count(self):
+        return self.documents.filter(status='expired').count()
+    
+    @property
+    def expiring_soon_count(self):
+        from datetime import date, timedelta
+        thirty_days_from_now = date.today() + timedelta(days=30)
+        return self.documents.filter(
+            status='active',
+            expiry_date__lte=thirty_days_from_now,
+            expiry_date__gte=date.today()
+        ).count()
+    
+    class Meta:
+        ordering = ['vehicle_number']
+
+def vehicle_document_upload_path(instance, filename):
+    """Generate upload path for vehicle documents"""
+    # Create path like: vehicle_documents/ABC123/insurance/filename
+    return f'vehicle_documents/{instance.vehicle.vehicle_number}/{instance.document_type}/{filename}'
+
+class VehicleDocument(models.Model):
+    """
+    Vehicle document management with renewal history tracking
+    """
+    DOCUMENT_TYPE_CHOICES = [
+        ('insurance', 'Insurance'),
+        ('puc', 'PUC (Pollution Under Control)'),
+        ('rc', 'RC (Registration Certificate)'),
+        ('fitness', 'Fitness Certificate'),
+        ('road_tax', 'Road Tax'),
+        ('permit', 'Permit'),
+        ('fastag', 'FASTag'),
+        ('commercial_permit', 'Commercial Permit'),
+        ('goods_permit', 'Goods Permit'),
+        ('other', 'Other'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('expired', 'Expired'),
+    ]
+    
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='documents')
+    document_type = models.CharField(max_length=30, choices=DOCUMENT_TYPE_CHOICES)
+    document_number = models.CharField(max_length=100, help_text="Policy No., RC No., Certificate No., etc.")
+    document_file = models.FileField(upload_to=vehicle_document_upload_path, blank=True, null=True)
+    issue_date = models.DateField(blank=True, null=True)
+    expiry_date = models.DateField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    renewal_reference = models.ForeignKey('self', on_delete=models.SET_NULL, blank=True, null=True, 
+                                        related_name='renewed_from', help_text="Reference to the document this replaces")
+    notes = models.TextField(blank=True, null=True)
+    added_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='added_vehicle_documents')
+    added_on = models.DateTimeField(auto_now_add=True)
+    updated_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='updated_vehicle_documents', null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    renewed_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='renewed_vehicle_documents', null=True, blank=True)
+    renewed_on = models.DateTimeField(null=True, blank=True)
+    
+    def save(self, *args, **kwargs):
+        # Auto-update status based on expiry date
+        if self.expiry_date:
+            today = timezone.now().date()
+            if self.expiry_date < today and self.status == 'active':
+                self.status = 'expired'
+            elif self.expiry_date >= today and self.status == 'expired':
+                # Only auto-activate if this is the latest document for this type
+                latest_doc = VehicleDocument.objects.filter(
+                    vehicle=self.vehicle,
+                    document_type=self.document_type
+                ).exclude(id=self.id).order_by('-added_on').first()
+                
+                if not latest_doc or self.added_on >= latest_doc.added_on:
+                    self.status = 'active'
+        
+        super().save(*args, **kwargs)
+        
+        # If this is a new active document, mark previous documents of same type as expired
+        if self.status == 'active':
+            VehicleDocument.objects.filter(
+                vehicle=self.vehicle,
+                document_type=self.document_type,
+                status='active'
+            ).exclude(id=self.id).update(status='expired')
+    
+    def __str__(self):
+        return f"{self.vehicle.vehicle_number} - {self.get_document_type_display()} ({self.document_number})"
+    
+    @property
+    def days_until_expiry(self):
+        """Calculate days until expiry (negative if expired)"""
+        if self.expiry_date:
+            today = timezone.now().date()
+            return (self.expiry_date - today).days
+        return None
+    
+    @property
+    def is_expiring_soon(self):
+        """Check if document expires within 30 days"""
+        days = self.days_until_expiry
+        return days is not None and 0 <= days <= 30
+    
+    @property
+    def is_expired(self):
+        """Check if document is expired"""
+        days = self.days_until_expiry
+        return days is not None and days < 0
+    
+    class Meta:
+        ordering = ['-added_on']
+        indexes = [
+            models.Index(fields=['vehicle', 'document_type', 'status']),
+            models.Index(fields=['expiry_date']),
+            models.Index(fields=['status']),
+        ]
 
 class WorkType(models.Model):
     """

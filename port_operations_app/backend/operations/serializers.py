@@ -2,7 +2,8 @@ from rest_framework import serializers
 from .models import (
     CargoOperation, RateMaster, Equipment, EquipmentRateMaster, TransportDetail, 
     LabourCost, MiscellaneousCost, RevenueStream,
-    VehicleType, WorkType, PartyMaster, ContractorMaster, ServiceTypeMaster, UnitTypeMaster
+    VehicleType, WorkType, PartyMaster, ContractorMaster, ServiceTypeMaster, UnitTypeMaster,
+    Vehicle, VehicleDocument
 )
 
 class CargoOperationSerializer(serializers.ModelSerializer):
@@ -88,6 +89,99 @@ class UnitTypeMasterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['created_by'] = self.context['request'].user
         return super().create(validated_data)
+
+class VehicleSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    vehicle_type_name = serializers.CharField(source='vehicle_type.name', read_only=True)
+    ownership_display = serializers.CharField(source='get_ownership_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    active_documents_count = serializers.IntegerField(read_only=True)
+    expired_documents_count = serializers.IntegerField(read_only=True)
+    expiring_soon_count = serializers.IntegerField(read_only=True)
+    
+    class Meta:
+        model = Vehicle
+        fields = [
+            'id', 'vehicle_number', 'vehicle_type', 'vehicle_type_name', 'ownership', 'ownership_display',
+            'status', 'status_display', 'owner_name', 'owner_contact', 'capacity', 'make_model',
+            'year_of_manufacture', 'chassis_number', 'engine_number', 'remarks', 'is_active',
+            'active_documents_count', 'expired_documents_count', 'expiring_soon_count',
+            'created_by', 'created_by_name', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_by', 'created_at', 'updated_at']
+    
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        return super().create(validated_data)
+
+class VehicleDocumentSerializer(serializers.ModelSerializer):
+    added_by_name = serializers.CharField(source='added_by.username', read_only=True)
+    updated_by_name = serializers.SerializerMethodField()
+    renewed_by_name = serializers.SerializerMethodField()
+    vehicle_number = serializers.CharField(source='vehicle.vehicle_number', read_only=True)
+    vehicle_type_name = serializers.CharField(source='vehicle.vehicle_type.name', read_only=True)
+    document_type_display = serializers.CharField(source='get_document_type_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    days_until_expiry = serializers.IntegerField(read_only=True)
+    is_expiring_soon = serializers.BooleanField(read_only=True)
+    is_expired = serializers.BooleanField(read_only=True)
+    renewal_reference_document_number = serializers.CharField(source='renewal_reference.document_number', read_only=True)
+    
+    def get_updated_by_name(self, obj):
+        return obj.updated_by.username if obj.updated_by else None
+        
+    def get_renewed_by_name(self, obj):
+        return obj.renewed_by.username if obj.renewed_by else None
+    
+    class Meta:
+        model = VehicleDocument
+        fields = [
+            'id', 'vehicle', 'vehicle_number', 'vehicle_type_name', 'document_type', 'document_type_display',
+            'document_number', 'document_file', 'issue_date', 'expiry_date', 'status', 'status_display',
+            'renewal_reference', 'renewal_reference_document_number', 'notes', 'days_until_expiry',
+            'is_expiring_soon', 'is_expired', 'added_by', 'added_by_name', 'added_on', 
+            'updated_by', 'updated_by_name', 'updated_at', 'renewed_by', 'renewed_by_name', 'renewed_on'
+        ]
+        read_only_fields = ['added_by', 'added_on', 'updated_by', 'updated_at', 'renewed_by', 'renewed_on', 
+                           'status', 'days_until_expiry', 'is_expiring_soon', 'is_expired']
+    
+    def create(self, validated_data):
+        validated_data['added_by'] = self.context['request'].user
+        return super().create(validated_data)
+    
+    def update(self, instance, validated_data):
+        validated_data['updated_by'] = self.context['request'].user
+        return super().update(instance, validated_data)
+
+class VehicleDocumentHistorySerializer(serializers.ModelSerializer):
+    """Serializer for viewing document history with minimal fields"""
+    added_by_name = serializers.CharField(source='added_by.username', read_only=True)
+    updated_by_name = serializers.SerializerMethodField()
+    renewed_by_name = serializers.SerializerMethodField()
+    vehicle_number = serializers.CharField(source='vehicle.vehicle_number', read_only=True)
+    vehicle_type_name = serializers.CharField(source='vehicle.vehicle_type.name', read_only=True)
+    document_type_display = serializers.CharField(source='get_document_type_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    days_until_expiry = serializers.IntegerField(read_only=True)
+    is_expiring_soon = serializers.BooleanField(read_only=True)
+    is_expired = serializers.BooleanField(read_only=True)
+    renewal_reference_document_number = serializers.CharField(source='renewal_reference.document_number', read_only=True)
+    
+    def get_updated_by_name(self, obj):
+        return obj.updated_by.username if obj.updated_by else None
+        
+    def get_renewed_by_name(self, obj):
+        return obj.renewed_by.username if obj.renewed_by else None
+    
+    class Meta:
+        model = VehicleDocument
+        fields = [
+            'id', 'vehicle', 'vehicle_number', 'vehicle_type_name', 'document_type', 'document_type_display', 
+            'document_number', 'document_file', 'issue_date', 'expiry_date', 'status', 'status_display', 
+            'renewal_reference', 'renewal_reference_document_number', 'notes', 'days_until_expiry',
+            'is_expiring_soon', 'is_expired', 'added_by', 'added_by_name', 'added_on', 
+            'updated_by', 'updated_by_name', 'updated_at', 'renewed_by', 'renewed_by_name', 'renewed_on'
+        ]
 
 class EquipmentRateMasterSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source='created_by.username', read_only=True)

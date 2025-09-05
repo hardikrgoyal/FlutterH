@@ -9,13 +9,15 @@ from datetime import datetime, timedelta
 from .models import (
     CargoOperation, RateMaster, Equipment, EquipmentRateMaster, TransportDetail, 
     LabourCost, MiscellaneousCost, RevenueStream,
-    VehicleType, WorkType, PartyMaster, ContractorMaster, ServiceTypeMaster, UnitTypeMaster
+    VehicleType, WorkType, PartyMaster, ContractorMaster, ServiceTypeMaster, UnitTypeMaster,
+    Vehicle, VehicleDocument
 )
 from .serializers import (
     CargoOperationSerializer, RateMasterSerializer, EquipmentSerializer, EquipmentRateMasterSerializer,
     TransportDetailSerializer, LabourCostSerializer, MiscellaneousCostSerializer,
     RevenueStreamSerializer, VehicleTypeSerializer, WorkTypeSerializer, 
-    PartyMasterSerializer, ContractorMasterSerializer, ServiceTypeMasterSerializer, UnitTypeMasterSerializer
+    PartyMasterSerializer, ContractorMasterSerializer, ServiceTypeMasterSerializer, UnitTypeMasterSerializer,
+    VehicleSerializer, VehicleDocumentSerializer, VehicleDocumentHistorySerializer
 )
 from authentication.permissions import (
     CanCreateOperations, CanManageEquipment, IsManagerOrAdmin,
@@ -165,6 +167,215 @@ class UnitTypeMasterViewSet(viewsets.ModelViewSet):
         else:
             permission_classes = [IsSupervisorOrAbove]
         return [permission() for permission in permission_classes]
+
+class VehicleViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing vehicles
+    """
+    queryset = Vehicle.objects.filter(is_active=True)
+    serializer_class = VehicleSerializer
+    permission_classes = [IsSupervisorOrAbove]
+    
+    def get_permissions(self):
+        """
+        Everyone can view vehicles, but only Admin/Manager/Accountant can edit
+        """
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes = [IsManagerOrAdmin]
+        else:
+            permission_classes = [IsSupervisorOrAbove]
+        return [permission() for permission in permission_classes]
+    
+    def get_queryset(self):
+        queryset = Vehicle.objects.filter(is_active=True)
+        vehicle_type = self.request.query_params.get('vehicle_type', None)
+        status = self.request.query_params.get('status', None)
+        ownership = self.request.query_params.get('ownership', None)
+        
+        if vehicle_type:
+            queryset = queryset.filter(vehicle_type_id=vehicle_type)
+        if status:
+            queryset = queryset.filter(status=status)
+        if ownership:
+            queryset = queryset.filter(ownership=ownership)
+            
+        return queryset
+    
+    @action(detail=True, methods=['get'], url_path='documents')
+    def get_vehicle_documents(self, request, pk=None):
+        """
+        Get all documents for a specific vehicle grouped by type
+        """
+        vehicle = self.get_object()
+        documents = VehicleDocument.objects.filter(vehicle=vehicle)
+        
+        # Group documents by type
+        grouped_docs = {}
+        for doc in documents:
+            doc_type = doc.document_type
+            if doc_type not in grouped_docs:
+                grouped_docs[doc_type] = {
+                    'type': doc_type,
+                    'type_display': doc.get_document_type_display(),
+                    'current': None,
+                    'history': []
+                }
+            
+            doc_data = VehicleDocumentHistorySerializer(doc).data
+            if doc.status == 'active':
+                grouped_docs[doc_type]['current'] = doc_data
+            grouped_docs[doc_type]['history'].append(doc_data)
+        
+        return Response(list(grouped_docs.values()))
+    
+    @action(detail=False, methods=['get'], url_path='expiring-documents')
+    def expiring_documents(self, request):
+        """
+        Get vehicles with documents expiring soon
+        """
+        from datetime import date, timedelta
+        thirty_days_from_now = date.today() + timedelta(days=30)
+        
+        vehicles_with_expiring_docs = Vehicle.objects.filter(
+            documents__status='active',
+            documents__expiry_date__lte=thirty_days_from_now,
+            documents__expiry_date__gte=date.today(),
+            is_active=True
+        ).distinct()
+        
+        result = []
+        for vehicle in vehicles_with_expiring_docs:
+            expiring_docs = vehicle.documents.filter(
+                status='active',
+                expiry_date__lte=thirty_days_from_now,
+                expiry_date__gte=date.today()
+            )
+            
+            vehicle_data = VehicleSerializer(vehicle).data
+            vehicle_data['expiring_documents'] = VehicleDocumentHistorySerializer(expiring_docs, many=True).data
+            result.append(vehicle_data)
+        
+        return Response(result)
+
+class VehicleDocumentViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing vehicle documents
+    """
+    queryset = VehicleDocument.objects.all()
+    serializer_class = VehicleDocumentSerializer
+    permission_classes = [IsSupervisorOrAbove]
+    
+    def get_permissions(self):
+        """
+        Everyone can view documents, but only Admin/Manager/Accountant can edit
+        """
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            # Check if user is admin, manager, or accountant
+            class CanManageDocuments:
+                def has_permission(self, request, view):
+                    if not request.user or not request.user.is_authenticated:
+                        return False
+                    return request.user.role in ['admin', 'manager', 'accountant']
+            
+            permission_classes = [CanManageDocuments]
+        else:
+            permission_classes = [IsSupervisorOrAbove]
+        return [permission() for permission in permission_classes]
+    
+    def get_queryset(self):
+        queryset = VehicleDocument.objects.all()
+        vehicle_id = self.request.query_params.get('vehicle', None)
+        document_type = self.request.query_params.get('document_type', None)
+        status = self.request.query_params.get('status', None)
+        expiring_soon = self.request.query_params.get('expiring_soon', None)
+        
+        if vehicle_id:
+            queryset = queryset.filter(vehicle_id=vehicle_id)
+        if document_type:
+            queryset = queryset.filter(document_type=document_type)
+        if status:
+            queryset = queryset.filter(status=status)
+        if expiring_soon == 'true':
+            from datetime import date, timedelta
+            thirty_days_from_now = date.today() + timedelta(days=30)
+            queryset = queryset.filter(
+                status='active',
+                expiry_date__lte=thirty_days_from_now,
+                expiry_date__gte=date.today()
+            )
+            
+        return queryset
+    
+    @action(detail=False, methods=['get'], url_path='expiring-soon')
+    def expiring_soon(self, request):
+        """
+        Get all documents expiring within 30 days
+        """
+        from datetime import date, timedelta
+        thirty_days_from_now = date.today() + timedelta(days=30)
+        
+        expiring_docs = VehicleDocument.objects.filter(
+            status='active',
+            expiry_date__lte=thirty_days_from_now,
+            expiry_date__gte=date.today()
+        ).order_by('expiry_date')
+        
+        serializer = self.get_serializer(expiring_docs, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'], url_path='expired')
+    def expired_documents(self, request):
+        """
+        Get all expired documents
+        """
+        expired_docs = VehicleDocument.objects.filter(status='expired').order_by('-expiry_date')
+        serializer = self.get_serializer(expired_docs, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'], url_path='renew')
+    def renew_document(self, request, pk=None):
+        """
+        Renew a document by creating a new version
+        """
+        old_document = self.get_object()
+        
+        # Create new document data
+        new_data = request.data.copy()
+        new_data['vehicle'] = old_document.vehicle.id
+        new_data['document_type'] = old_document.document_type
+        new_data['renewal_reference'] = old_document.id
+        
+        # Create the new document
+        serializer = self.get_serializer(data=new_data)
+        if serializer.is_valid():
+            from django.utils import timezone
+            
+            # Save new document with renewal tracking
+            new_document = serializer.save(
+                added_by=request.user,
+                renewed_by=request.user,
+                renewed_on=timezone.now()
+            )
+            
+            # Mark old document as expired and track who renewed it
+            old_document.status = 'expired'
+            old_document.renewed_by = request.user
+            old_document.renewed_on = timezone.now()
+            old_document.save()
+            
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=False, methods=['get'], url_path='document-types')
+    def document_types(self, request):
+        """
+        Get available document types
+        """
+        return Response([
+            {'value': choice[0], 'label': choice[1]} 
+            for choice in VehicleDocument.DOCUMENT_TYPE_CHOICES
+        ])
 
 class RateMasterViewSet(viewsets.ModelViewSet):
     """
@@ -501,6 +712,7 @@ class DashboardView(generics.GenericAPIView):
     def get(self, request):
         user = request.user
         today = timezone.now().date()
+        thirty_days_from_now = today + timedelta(days=30)
         
         # Common data for all roles
         data = {
@@ -513,6 +725,46 @@ class DashboardView(generics.GenericAPIView):
             'date': today
         }
         
+        # Vehicle document alerts for all users
+        expiring_docs = VehicleDocument.objects.filter(
+            status='active',
+            expiry_date__lte=thirty_days_from_now,
+            expiry_date__gte=today
+        ).select_related('vehicle', 'vehicle__vehicle_type').order_by('expiry_date')[:5]
+        
+        expired_docs = VehicleDocument.objects.filter(
+            status='expired',
+            expiry_date__gte=today - timedelta(days=7)  # Show recently expired
+        ).select_related('vehicle', 'vehicle__vehicle_type').order_by('-expiry_date')[:5]
+        
+        data['vehicle_alerts'] = {
+            'expiring_soon': [
+                {
+                    'vehicle_number': doc.vehicle.vehicle_number,
+                    'document_type': doc.get_document_type_display(),
+                    'document_number': doc.document_number,
+                    'expiry_date': doc.expiry_date,
+                    'days_until_expiry': doc.days_until_expiry,
+                    'is_urgent': doc.days_until_expiry <= 7,
+                } for doc in expiring_docs
+            ],
+            'recently_expired': [
+                {
+                    'vehicle_number': doc.vehicle.vehicle_number,
+                    'document_type': doc.get_document_type_display(),
+                    'document_number': doc.document_number,
+                    'expiry_date': doc.expiry_date,
+                    'days_since_expiry': abs(doc.days_until_expiry),
+                } for doc in expired_docs
+            ],
+            'total_expiring_count': VehicleDocument.objects.filter(
+                status='active',
+                expiry_date__lte=thirty_days_from_now,
+                expiry_date__gte=today
+            ).count(),
+            'total_expired_count': VehicleDocument.objects.filter(status='expired').count(),
+        }
+        
         if user.is_admin:
             # Admin dashboard data
             data.update({
@@ -522,7 +774,8 @@ class DashboardView(generics.GenericAPIView):
                     total=Sum('amount'))['total'] or 0,
                 'recent_operations': CargoOperationSerializer(
                     CargoOperation.objects.all()[:5], many=True
-                ).data
+                ).data,
+                'total_vehicles': Vehicle.objects.filter(is_active=True).count(),
             })
             
         elif user.is_manager:
@@ -536,7 +789,8 @@ class DashboardView(generics.GenericAPIView):
                     date=today).count(),
                 'recent_equipment': EquipmentSerializer(
                     Equipment.objects.filter(status='running')[:5], many=True
-                ).data
+                ).data,
+                'total_vehicles': Vehicle.objects.filter(is_active=True).count(),
             })
             
         elif user.is_supervisor:
@@ -568,7 +822,8 @@ class DashboardView(generics.GenericAPIView):
                 'total_revenue': RevenueStream.objects.aggregate(
                     total=Sum('amount'))['total'] or 0,
                 'expenses_today': PortExpense.objects.filter(
-                    created_at__date=today).count()
+                    created_at__date=today).count(),
+                'total_vehicles': Vehicle.objects.filter(is_active=True).count(),
             })
         
         return Response(data)

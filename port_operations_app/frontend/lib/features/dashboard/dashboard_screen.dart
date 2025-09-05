@@ -20,6 +20,14 @@ import '../wallet/wallet_service.dart';
 import '../wallet/screens/create_expense_screen.dart';
 import '../wallet/screens/create_voucher_screen.dart';
 import '../wallet/screens/my_submissions_screen.dart';
+import 'dashboard_service.dart';
+import 'widgets/vehicle_alerts_card.dart';
+
+// Provider for dashboard data
+final dashboardDataProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final dashboardService = DashboardService();
+  return await dashboardService.getDashboardData();
+});
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -121,6 +129,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         return _buildManagerDashboard(context, ref);
       case 'supervisor':
         return _buildSupervisorDashboard(context, ref);
+      case 'accountant':
+        return _buildAccountantDashboard(context, ref);
       default:
         return _buildOperatorDashboard(context, ref);
     }
@@ -128,6 +138,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   List<Widget> _buildAdminDashboard(BuildContext context, WidgetRef ref) {
     return [
+      _buildVehicleAlertsSection(context, ref),
+      const SizedBox(height: 16),
       _buildWalletSection(context, ref),
       const SizedBox(height: 16),
       _buildImportantActionsSection(context),
@@ -146,6 +158,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   List<Widget> _buildManagerDashboard(BuildContext context, WidgetRef ref) {
     return [
+      _buildVehicleAlertsSection(context, ref),
+      const SizedBox(height: 16),
       _buildWalletSection(context, ref),
       const SizedBox(height: 16),
       _buildImportantActionsSection(context),
@@ -160,6 +174,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   List<Widget> _buildSupervisorDashboard(BuildContext context, WidgetRef ref) {
     return [
+      _buildVehicleAlertsSection(context, ref),
+      const SizedBox(height: 16),
       _buildWalletSection(context, ref),
       const SizedBox(height: 16),
       _buildImportantActionsSection(context),
@@ -182,7 +198,63 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     ];
   }
 
+  List<Widget> _buildAccountantDashboard(BuildContext context, WidgetRef ref) {
+    return [
+      _buildVehicleAlertsSection(context, ref),
+      const SizedBox(height: 16),
+      _buildWalletSection(context, ref),
+      const SizedBox(height: 16),
+      _buildImportantActionsSection(context),
+      const SizedBox(height: 16),
+      _buildExpenseApprovalSection(context, ref),
+      const SizedBox(height: 16),
+      _buildVoucherApprovalSection(context, ref),
+    ];
+  }
 
+  // Vehicle Alerts Section
+  Widget _buildVehicleAlertsSection(BuildContext context, WidgetRef ref) {
+    final dashboardData = ref.watch(dashboardDataProvider);
+    
+    return dashboardData.when(
+      data: (data) {
+        final vehicleAlerts = data['vehicle_alerts'] as Map<String, dynamic>? ?? {};
+        if (vehicleAlerts.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        return VehicleAlertsCard(vehicleAlerts: vehicleAlerts);
+      },
+      loading: () => const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Loading vehicle alerts...'),
+            ],
+          ),
+        ),
+      ),
+      error: (error, stack) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              const Icon(Icons.error, color: Colors.red),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Failed to load vehicle alerts: $error',
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   // Equipment Cards Section (Most Important for Manager/Supervisor)
   Widget _buildRunningEquipmentSection(BuildContext context, WidgetRef ref, {bool showStopButtons = false}) {

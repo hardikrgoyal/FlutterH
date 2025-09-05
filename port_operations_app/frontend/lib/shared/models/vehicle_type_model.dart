@@ -26,4 +26,17 @@ class VehicleType {
 
   factory VehicleType.fromJson(Map<String, dynamic> json) => _$VehicleTypeFromJson(json);
   Map<String, dynamic> toJson() => _$VehicleTypeToJson(this);
+  
+  @override
+  String toString() => name;
+  
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is VehicleType &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 } 
