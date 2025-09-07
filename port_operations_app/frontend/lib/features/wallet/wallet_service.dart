@@ -145,6 +145,7 @@ class WalletService {
     required String expenseCategory,
     required double amount,
     required XFile billPhotoFile,
+    String? vehicleNumber,
     String? remarks,
   }) async {
     try {
@@ -153,6 +154,7 @@ class WalletService {
         'expense_category': expenseCategory,
         'amount': amount,
         'bill_photo': await _createMultipartFile(billPhotoFile),
+        if (vehicleNumber != null && vehicleNumber.isNotEmpty) 'vehicle_number': vehicleNumber,
         if (remarks != null) 'remarks': remarks,
       });
 
@@ -590,6 +592,12 @@ class PortExpenseStatus {
   final String gateNo;
   final String inOut;
   final String description;
+  final double cisfAmount;
+  final double kptAmount;
+  final double customsAmount;
+  final int roadTaxDays;
+  final double roadTaxAmount;
+  final double otherCharges;
   final double totalAmount;
   final String status;
   final DateTime dateTime;
@@ -606,6 +614,12 @@ class PortExpenseStatus {
     required this.gateNo,
     required this.inOut,
     required this.description,
+    required this.cisfAmount,
+    required this.kptAmount,
+    required this.customsAmount,
+    required this.roadTaxDays,
+    required this.roadTaxAmount,
+    required this.otherCharges,
     required this.totalAmount,
     required this.status,
     required this.dateTime,
@@ -624,6 +638,12 @@ class PortExpenseStatus {
       gateNo: json['gate_no'],
       inOut: json['in_out'] ?? 'In',
       description: json['description'] ?? '',
+      cisfAmount: double.parse(json['cisf_amount']?.toString() ?? '0'),
+      kptAmount: double.parse(json['kpt_amount']?.toString() ?? '0'),
+      customsAmount: double.parse(json['customs_amount']?.toString() ?? '0'),
+      roadTaxDays: json['road_tax_days'] ?? 0,
+      roadTaxAmount: double.parse(json['road_tax_amount']?.toString() ?? '0'),
+      otherCharges: double.parse(json['other_charges']?.toString() ?? '0'),
       totalAmount: double.parse(json['total_amount'].toString()),
       status: json['status'],
       dateTime: DateTime.parse(json['date_time']),

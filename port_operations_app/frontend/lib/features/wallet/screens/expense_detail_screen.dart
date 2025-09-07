@@ -203,6 +203,23 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
               ],
             ),
             const SizedBox(height: 16),
+            
+            // Individual expense items
+            _buildExpenseItem('CISF Charges', widget.expense.cisfAmount),
+            _buildExpenseItem('KPT Charges', widget.expense.kptAmount),
+            _buildExpenseItem('Customs Charges', widget.expense.customsAmount),
+            _buildExpenseItem(
+              'Road Tax (${widget.expense.roadTaxDays} ${widget.expense.roadTaxDays == 1 ? 'day' : 'days'})', 
+              widget.expense.roadTaxAmount
+            ),
+            if (widget.expense.otherCharges > 0)
+              _buildExpenseItem('Other Charges', widget.expense.otherCharges),
+            
+            const SizedBox(height: 12),
+            const Divider(thickness: 1),
+            const SizedBox(height: 8),
+            
+            // Total amount
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -231,17 +248,34 @@ class _ExpenseDetailScreenState extends ConsumerState<ExpenseDetailScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-            const Text(
-              'Note: Detailed expense breakdown is calculated based on gate charges, vehicle type, and additional services.',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textSecondary,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildExpenseItem(String label, double amount) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.black87,
+            ),
+          ),
+          Text(
+            '₹${NumberFormat('#,##,###.##').format(amount)}',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+        ],
       ),
     );
   }

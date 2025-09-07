@@ -12,6 +12,7 @@ class LabourService {
   Future<List<LabourCost>> getLabourCosts({
     int? operationId,
     String? labourType,
+    bool? invoiceStatus,
     int? page,
     int? pageSize,
   }) async {
@@ -19,6 +20,9 @@ class LabourService {
     
     if (operationId != null) queryParams['operation'] = operationId.toString();
     if (labourType != null) queryParams['labour_type'] = labourType;
+    if (invoiceStatus != null) {
+      queryParams['invoice_received'] = invoiceStatus.toString();
+    }
     if (page != null) queryParams['page'] = page.toString();
     if (pageSize != null) queryParams['page_size'] = pageSize.toString();
 
@@ -115,6 +119,7 @@ class LabourCostNotifier extends StateNotifier<AsyncValue<List<LabourCost>>> {
   Future<void> loadLabourCosts({
     int? operationId,
     String? labourType,
+    bool? invoiceStatus,
     bool refresh = false,
   }) async {
     if (!refresh && state.hasValue) return;
@@ -125,6 +130,7 @@ class LabourCostNotifier extends StateNotifier<AsyncValue<List<LabourCost>>> {
       final labourCosts = await _labourService.getLabourCosts(
         operationId: operationId,
         labourType: labourType,
+        invoiceStatus: invoiceStatus,
       );
       state = AsyncValue.data(labourCosts);
     } catch (error, stackTrace) {
@@ -136,11 +142,13 @@ class LabourCostNotifier extends StateNotifier<AsyncValue<List<LabourCost>>> {
   Future<void> clearAndReload({
     int? operationId,
     String? labourType,
+    bool? invoiceStatus,
   }) async {
     state = const AsyncValue.loading();
     await loadLabourCosts(
       operationId: operationId,
       labourType: labourType,
+      invoiceStatus: invoiceStatus,
       refresh: true,
     );
   }
@@ -194,10 +202,15 @@ class LabourCostNotifier extends StateNotifier<AsyncValue<List<LabourCost>>> {
   }
 
   // Refresh labour costs
-  Future<void> refresh({int? operationId, String? labourType}) async {
+  Future<void> refresh({
+    int? operationId, 
+    String? labourType,
+    bool? invoiceStatus,
+  }) async {
     await loadLabourCosts(
       operationId: operationId,
       labourType: labourType,
+      invoiceStatus: invoiceStatus,
       refresh: true,
     );
   }

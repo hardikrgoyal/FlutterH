@@ -301,9 +301,32 @@ class _ExpenseApprovalsScreenState extends ConsumerState<ExpenseApprovalsScreen>
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        'Gate: ${_getGateDisplayName(expense.gateNo)}',
-                        style: TextStyle(color: Colors.grey[600]),
+                      Row(
+                        children: [
+                          Text(
+                            'Gate: ${_getGateDisplayName(expense.gateNo)}',
+                            style: TextStyle(color: Colors.grey[600]),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: expense.inOut == 'In' ? Colors.green.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: expense.inOut == 'In' ? Colors.green.withValues(alpha: 0.3) : Colors.orange.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Text(
+                              expense.inOut,
+                              style: TextStyle(
+                                color: expense.inOut == 'In' ? Colors.green[700] : Colors.orange[700],
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -346,6 +369,48 @@ class _ExpenseApprovalsScreenState extends ConsumerState<ExpenseApprovalsScreen>
                 ),
               ],
             ),
+            
+            // Display description if available
+            if (expense.description.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.description, size: 16, color: Colors.grey[600]),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Description:',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            expense.description,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            
             if (expense.reviewedByName != null || expense.approvedByName != null) ...[
               const SizedBox(height: 8),
               const Divider(),
@@ -467,7 +532,54 @@ class _ExpenseApprovalsScreenState extends ConsumerState<ExpenseApprovalsScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('${expense.vehicle} ${expense.vehicleNumber}'),
+            Text('Gate: ${_getGateDisplayName(expense.gateNo)} (${expense.inOut})'),
             Text('Amount: ₹${NumberFormat('#,##,###.##').format(expense.totalAmount)}'),
+            if (expense.description.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Description:',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(expense.description),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Expense Breakdown:',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                  const SizedBox(height: 4),
+                  Text('CISF: ₹${NumberFormat('#,##,###.##').format(expense.cisfAmount)}', style: const TextStyle(fontSize: 11)),
+                  Text('KPT: ₹${NumberFormat('#,##,###.##').format(expense.kptAmount)}', style: const TextStyle(fontSize: 11)),
+                  Text('Customs: ₹${NumberFormat('#,##,###.##').format(expense.customsAmount)}', style: const TextStyle(fontSize: 11)),
+                  Text('Road Tax: ₹${NumberFormat('#,##,###.##').format(expense.roadTaxAmount)} (${expense.roadTaxDays} days)', style: const TextStyle(fontSize: 11)),
+                  if (expense.otherCharges > 0)
+                    Text('Other: ₹${NumberFormat('#,##,###.##').format(expense.otherCharges)}', style: const TextStyle(fontSize: 11)),
+                ],
+              ),
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: commentsController,

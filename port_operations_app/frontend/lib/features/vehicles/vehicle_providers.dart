@@ -12,7 +12,13 @@ final vehicleTypesProvider = FutureProvider.autoDispose<List<VehicleType>>((ref)
   return service.getVehicleTypes();
 });
 
-// Vehicles provider with filters
+// Simple vehicles provider without family to prevent infinite loops
+final allVehiclesProvider = FutureProvider<List<Vehicle>>((ref) async {
+  final service = ref.read(vehicleServiceProvider);
+  return service.getVehicles();
+});
+
+// Vehicles provider with filters (keep original for backward compatibility)
 final vehiclesProvider = FutureProvider.autoDispose.family<List<Vehicle>, Map<String, dynamic>>((ref, filters) async {
   final service = ref.read(vehicleServiceProvider);
   return service.getVehicles(

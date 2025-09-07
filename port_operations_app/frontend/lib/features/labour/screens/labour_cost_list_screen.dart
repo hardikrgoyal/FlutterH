@@ -48,6 +48,8 @@ class _LabourCostListScreenState extends ConsumerState<LabourCostListScreen> {
   void _loadLabourCosts() {
     ref.read(labourCostProvider.notifier).loadLabourCosts(
       operationId: widget.operationId,
+      labourType: _selectedLabourType,
+      invoiceStatus: _selectedInvoiceStatus,
       refresh: true,
     );
   }
@@ -57,14 +59,7 @@ class _LabourCostListScreenState extends ConsumerState<LabourCostListScreen> {
     setState(() {
       _filteredLabourCosts = _allLabourCosts.where((labourCost) {
         final matchesSearch = query.isEmpty || _matchesSearchQuery(labourCost, query);
-
-        final matchesType = _selectedLabourType == null ||
-            labourCost.labourType == _selectedLabourType;
-
-        final matchesInvoiceStatus = _selectedInvoiceStatus == null ||
-            labourCost.invoiceReceived == _selectedInvoiceStatus;
-
-        return matchesSearch && matchesType && matchesInvoiceStatus;
+        return matchesSearch;
       }).toList();
     });
   }
@@ -124,10 +119,7 @@ class _LabourCostListScreenState extends ConsumerState<LabourCostListScreen> {
                   _filterLabourCosts();
                 });
                 
-                final displayList = _filteredLabourCosts.isEmpty && 
-                    _searchController.text.isEmpty && 
-                    _selectedLabourType == null && 
-                    _selectedInvoiceStatus == null
+                final displayList = _searchController.text.isEmpty
                     ? labourCosts 
                     : _filteredLabourCosts;
                     
@@ -187,7 +179,7 @@ class _LabourCostListScreenState extends ConsumerState<LabourCostListScreen> {
                       setState(() {
                         _selectedLabourType = value;
                       });
-                      _filterLabourCosts();
+                      _loadLabourCosts(); // Reload data with new type
                     },
                   ),
                 ),
@@ -217,7 +209,7 @@ class _LabourCostListScreenState extends ConsumerState<LabourCostListScreen> {
                       setState(() {
                         _selectedInvoiceStatus = value;
                       });
-                      _filterLabourCosts();
+                      _loadLabourCosts(); // Reload data with new invoice status
                     },
                   ),
                 ),

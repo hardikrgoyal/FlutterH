@@ -595,11 +595,20 @@ class LabourCostViewSet(viewsets.ModelViewSet):
         queryset = LabourCost.objects.all()
         operation_id = self.request.query_params.get('operation', None)
         labour_type = self.request.query_params.get('labour_type', None)
+        invoice_received = self.request.query_params.get('invoice_received', None)
         
         if operation_id:
             queryset = queryset.filter(operation_id=operation_id)
         if labour_type:
             queryset = queryset.filter(labour_type=labour_type)
+        if invoice_received is not None:
+            # Convert string parameter to boolean
+            if invoice_received.lower() == 'true':
+                queryset = queryset.filter(invoice_received=True)
+            elif invoice_received.lower() == 'false':
+                queryset = queryset.filter(invoice_received=False)
+            elif invoice_received.lower() == 'null':
+                queryset = queryset.filter(invoice_received__isnull=True)
             
         return queryset
     

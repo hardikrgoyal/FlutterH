@@ -185,6 +185,7 @@ class DigitalVoucher(models.Model):
     expense_category = models.CharField(max_length=30, choices=EXPENSE_CATEGORY_CHOICES)
     amount = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     bill_photo = models.ImageField(upload_to='voucher_photos/')
+    vehicle_number = models.CharField(max_length=20, blank=True, null=True)
     remarks = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='submitted')
     approved_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='approved_vouchers', blank=True, null=True)

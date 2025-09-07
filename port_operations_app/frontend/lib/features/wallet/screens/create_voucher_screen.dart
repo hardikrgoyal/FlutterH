@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import '../../../core/constants/app_colors.dart';
 import '../wallet_provider.dart';
+import '../../../shared/widgets/vehicle_search_dropdown.dart';
 
 class CreateVoucherScreen extends ConsumerStatefulWidget {
   const CreateVoucherScreen({super.key});
@@ -24,6 +25,10 @@ class _CreateVoucherScreenState extends ConsumerState<CreateVoucherScreen> {
   XFile? _selectedImage;
   Uint8List? _imageBytes;
   bool _isLoading = false;
+  
+  // Vehicle selection state
+  String? _selectedVehicleNumber;
+  String? _customVehicleNumber;
 
   final List<Map<String, String>> _categoryOptions = [
     {'value': 'fuel', 'label': 'Fuel'},
@@ -72,6 +77,27 @@ class _CreateVoucherScreenState extends ConsumerState<CreateVoucherScreen> {
               const SizedBox(height: 24),
 
               _buildSectionHeader('Additional Information'),
+              VehicleSearchDropdown(
+                selectedVehicleNumber: _selectedVehicleNumber,
+                customVehicleNumber: _customVehicleNumber,
+                onVehicleSelected: (vehicleNumber) {
+                  setState(() {
+                    _selectedVehicleNumber = vehicleNumber;
+                    if (vehicleNumber != 'others') {
+                      _customVehicleNumber = null;
+                    }
+                  });
+                },
+                onCustomVehicleChanged: (customVehicle) {
+                  setState(() {
+                    _customVehicleNumber = customVehicle;
+                  });
+                },
+                labelText: 'Vehicle Number (Optional)',
+                hintText: 'Search and select vehicle',
+                showOthersOption: true,
+              ),
+              const SizedBox(height: 16),
               _buildTextField(
                 controller: _remarksController,
                 label: 'Remarks',
@@ -368,11 +394,20 @@ class _CreateVoucherScreenState extends ConsumerState<CreateVoucherScreen> {
     try {
       final walletService = ref.read(walletServiceProvider);
       
+      // Determine vehicle number to send
+      String? vehicleNumber;
+      if (_selectedVehicleNumber == 'others' && _customVehicleNumber != null && _customVehicleNumber!.isNotEmpty) {
+        vehicleNumber = _customVehicleNumber;
+      } else if (_selectedVehicleNumber != null && _selectedVehicleNumber != 'others') {
+        vehicleNumber = _selectedVehicleNumber;
+      }
+      
       await walletService.createDigitalVoucher(
         dateTime: _selectedDateTime,
         expenseCategory: _selectedCategory,
         amount: double.parse(_amountController.text),
         billPhotoFile: _selectedImage!,
+        vehicleNumber: vehicleNumber,
         remarks: _remarksController.text.isNotEmpty ? _remarksController.text : null,
       );
 

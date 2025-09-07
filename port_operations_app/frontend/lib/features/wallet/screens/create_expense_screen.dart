@@ -6,6 +6,8 @@ import 'dart:io';
 import '../../../core/constants/app_colors.dart';
 import '../wallet_provider.dart';
 import '../../auth/auth_service.dart';
+import '../../../shared/widgets/vehicle_search_dropdown.dart';
+import '../../../shared/models/vehicle_model.dart';
 
 class CreateExpenseScreen extends ConsumerStatefulWidget {
   const CreateExpenseScreen({super.key});
@@ -32,10 +34,15 @@ class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen> {
   bool _isLoading = false;
   bool _showAddNewVehicleType = false;
   
+  // Vehicle selection state
+  String? _selectedVehicleNumber;
+  String? _customVehicleNumber;
+  Vehicle? _selectedVehicleObject;
+  
   XFile? _selectedPhoto;
   final ImagePicker _imagePicker = ImagePicker();
 
-  final List<String> _vehicleTypes = [
+  List<String> _vehicleTypes = [
     'Loader',
     'Excavator',
     'Truck/Trailer',
@@ -104,14 +111,46 @@ class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildSectionHeader('Vehicle Information'),
-              _buildVehicleTypeDropdown(),
-              const SizedBox(height: 16),
-              _buildTextField(
-                controller: _vehicleNumberController,
-                label: 'Vehicle Number',
-                hint: 'e.g., GJ01AB1234',
-                validator: (value) => value?.isEmpty == true ? 'Vehicle number is required' : null,
+              VehicleSearchDropdown(
+                selectedVehicleNumber: _selectedVehicleNumber,
+                customVehicleNumber: _customVehicleNumber,
+                onVehicleSelected: (vehicleNumber) {
+                  setState(() {
+                    _selectedVehicleNumber = vehicleNumber;
+                    if (vehicleNumber != 'others') {
+                      _vehicleNumberController.text = vehicleNumber ?? '';
+                      _customVehicleNumber = null;
+                    } else {
+                      // Reset to default vehicle type when "Others" is selected
+                      _selectedVehicleType = 'Loader';
+                    }
+                  });
+                },
+                onVehicleObjectSelected: (vehicle) {
+                  setState(() {
+                    _selectedVehicleObject = vehicle;
+                    if (vehicle != null) {
+                      // Add the vehicle type to the list if it doesn't exist
+                      if (!_vehicleTypes.contains(vehicle.vehicleTypeName)) {
+                        _vehicleTypes.add(vehicle.vehicleTypeName);
+                      }
+                      // Auto-set vehicle type when a vehicle is selected
+                      _selectedVehicleType = vehicle.vehicleTypeName;
+                    }
+                  });
+                },
+                onCustomVehicleChanged: (customVehicle) {
+                  setState(() {
+                    _customVehicleNumber = customVehicle;
+                    _vehicleNumberController.text = customVehicle ?? '';
+                  });
+                },
+                labelText: 'Vehicle Number',
+                hintText: 'Search and select vehicle',
+                showOthersOption: true,
               ),
+              const SizedBox(height: 16),
+              _buildVehicleTypeDropdown(),
               const SizedBox(height: 16),
               _buildGateDropdown(),
               const SizedBox(height: 16),
@@ -199,13 +238,15 @@ class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen> {
   }
 
   Widget _buildVehicleTypeDropdown() {
+    bool isAutoFilled = _selectedVehicleObject != null && _selectedVehicleNumber != 'others';
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         DropdownButtonFormField<String>(
           value: _selectedVehicleType,
           decoration: InputDecoration(
-            labelText: 'Vehicle Type',
+            labelText: isAutoFilled ? 'Vehicle Type (Auto-filled)' : 'Vehicle Type',
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
             ),
@@ -213,6 +254,10 @@ class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen> {
               borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(color: AppColors.primary, width: 2),
             ),
+            // Add visual indication when auto-filled
+            suffixIcon: isAutoFilled 
+                ? Icon(Icons.check_circle, color: AppColors.success, size: 20)
+                : null,
           ),
           items: [
             ..._vehicleTypes.map((type) {
@@ -233,7 +278,7 @@ class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen> {
                 ),
               ),
           ],
-          onChanged: (value) {
+          onChanged: isAutoFilled ? null : (value) {
             if (value == 'add_new') {
               setState(() {
                 _showAddNewVehicleType = true;
@@ -247,6 +292,24 @@ class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen> {
           },
           validator: (value) => value?.isEmpty == true || value == 'add_new' ? 'Vehicle type is required' : null,
         ),
+        if (isAutoFilled) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.info_outline, size: 16, color: Colors.grey.shade600),
+              const SizedBox(width: 8),
+              Expanded(
+                                child: Text(
+                   'Vehicle type automatically set from "${_selectedVehicleObject?.vehicleNumber}". Select "Others" to choose manually.',
+                   style: TextStyle(
+                     fontSize: 12,
+                     color: Colors.grey.shade600,
+                   ),
+                 ),
+              ),
+            ],
+          ),
+        ],
         if (_showAddNewVehicleType && _canAddVehicleType) ...[
           const SizedBox(height: 12),
           Row(
