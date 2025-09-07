@@ -253,7 +253,7 @@ class TransportDetailNotifier extends StateNotifier<TransportDetailState> {
     }
   }
 
-  // Add new party
+  // Add new partyy
   Future<bool> addParty({
     required String name,
   }) async {
