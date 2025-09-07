@@ -21,7 +21,8 @@ from .serializers import (
 )
 from authentication.permissions import (
     CanCreateOperations, CanManageEquipment, IsManagerOrAdmin,
-    IsSupervisorOrAbove, IsAccountantOrAdmin, CanAccessLabourCosts, CanManageRevenue
+    IsSupervisorOrAbove, IsAccountantOrAdmin, CanAccessLabourCosts, CanManageRevenue,
+    CanManageVehicles, CanViewVehicles
 )
 
 class CargoOperationViewSet(viewsets.ModelViewSet):
@@ -60,17 +61,17 @@ class VehicleTypeViewSet(viewsets.ModelViewSet):
     """
     queryset = VehicleType.objects.filter(is_active=True)
     serializer_class = VehicleTypeSerializer
-    permission_classes = [IsSupervisorOrAbove]
+    permission_classes = [CanViewVehicles]
     pagination_class = None  # Disable pagination for master data
     
     def get_permissions(self):
         """
-        Only managers and admins can create/update/delete vehicle types
+        All authenticated users can view vehicle types, only managers and admins can create/update/delete
         """
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             permission_classes = [IsManagerOrAdmin]
         else:
-            permission_classes = [IsSupervisorOrAbove]
+            permission_classes = [CanViewVehicles]
         return [permission() for permission in permission_classes]
 
 class WorkTypeViewSet(viewsets.ModelViewSet):
@@ -174,16 +175,16 @@ class VehicleViewSet(viewsets.ModelViewSet):
     """
     queryset = Vehicle.objects.filter(is_active=True)
     serializer_class = VehicleSerializer
-    permission_classes = [IsSupervisorOrAbove]
+    permission_classes = [CanViewVehicles]
     
     def get_permissions(self):
         """
-        Everyone can view vehicles, but only Admin/Manager/Accountant can edit
+        All authenticated users can view vehicles, but only Admin/Manager/Accountant can edit
         """
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            permission_classes = [IsManagerOrAdmin]
+            permission_classes = [CanManageVehicles]
         else:
-            permission_classes = [IsSupervisorOrAbove]
+            permission_classes = [CanViewVehicles]
         return [permission() for permission in permission_classes]
     
     def get_queryset(self):
@@ -263,23 +264,16 @@ class VehicleDocumentViewSet(viewsets.ModelViewSet):
     """
     queryset = VehicleDocument.objects.all()
     serializer_class = VehicleDocumentSerializer
-    permission_classes = [IsSupervisorOrAbove]
+    permission_classes = [CanViewVehicles]
     
     def get_permissions(self):
         """
-        Everyone can view documents, but only Admin/Manager/Accountant can edit
+        All authenticated users can view documents, but only Admin/Manager/Accountant can edit
         """
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            # Check if user is admin, manager, or accountant
-            class CanManageDocuments:
-                def has_permission(self, request, view):
-                    if not request.user or not request.user.is_authenticated:
-                        return False
-                    return request.user.role in ['admin', 'manager', 'accountant']
-            
-            permission_classes = [CanManageDocuments]
+            permission_classes = [CanManageVehicles]
         else:
-            permission_classes = [IsSupervisorOrAbove]
+            permission_classes = [CanViewVehicles]
         return [permission() for permission in permission_classes]
     
     def get_queryset(self):

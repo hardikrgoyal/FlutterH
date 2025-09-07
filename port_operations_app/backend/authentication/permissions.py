@@ -111,4 +111,18 @@ class CanManageRevenue(BaseRolePermission):
     Permission for users who can manage revenue streams
     Admin, Manager, and Accountant access
     """
-    allowed_roles = ['admin', 'manager', 'accountant'] 
+    allowed_roles = ['admin', 'manager', 'accountant']
+
+class CanManageVehicles(BaseRolePermission):
+    """
+    Permission for users who can manage vehicles and documents
+    Admin, Manager, and Accountant access
+    """
+    allowed_roles = ['admin', 'manager', 'accountant']
+
+class CanViewVehicles(BaseRolePermission):
+    """
+    Permission for users who can view vehicles
+    All authenticated users can view vehicles
+    """
+    allowed_roles = ['supervisor', 'manager', 'admin', 'accountant'] 

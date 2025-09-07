@@ -7,6 +7,7 @@ import '../../../shared/models/vehicle_model.dart';
 import '../../auth/auth_service.dart';
 import '../vehicle_providers.dart';
 import 'add_document_screen.dart';
+import 'edit_vehicle_screen.dart';
 import 'document_viewer_screen.dart';
 
 class VehicleDetailScreen extends ConsumerStatefulWidget {
@@ -43,6 +44,34 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> with 
         title: Text(widget.vehicle.vehicleNumber),
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.white,
+        actions: canEdit ? [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (action) => _handleVehicleAction(action, canEdit),
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'edit',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit, size: 18, color: AppColors.primary),
+                    SizedBox(width: 8),
+                    Text('Edit Vehicle'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, size: 18, color: AppColors.error),
+                    SizedBox(width: 8),
+                    Text('Delete Vehicle'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ] : null,
         bottom: TabBar(
           controller: _tabController,
           labelColor: AppColors.white,
@@ -585,5 +614,98 @@ class _VehicleDetailScreenState extends ConsumerState<VehicleDetailScreen> with 
         ),
       ),
     );
+  }
+
+  void _handleVehicleAction(String action, bool canEdit) {
+    switch (action) {
+      case 'edit':
+        _editVehicle();
+        break;
+      case 'delete':
+        _confirmDeleteVehicle();
+        break;
+    }
+  }
+
+  void _editVehicle() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditVehicleScreen(vehicle: widget.vehicle),
+      ),
+    );
+
+    // Pop back to vehicles list if vehicle was updated
+    if (result == true && mounted) {
+      Navigator.pop(context, true); // Return to vehicle list with refresh signal
+    }
+  }
+
+  void _confirmDeleteVehicle() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Vehicle'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Are you sure you want to delete vehicle "${widget.vehicle.vehicleNumber}"?'),
+            const SizedBox(height: 12),
+            const Text(
+              'This action cannot be undone. All associated documents will also be deleted.',
+              style: TextStyle(
+                color: AppColors.error,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteVehicle();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: AppColors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteVehicle() async {
+    try {
+      await ref.read(vehicleServiceProvider).deleteVehicle(widget.vehicle.id);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Vehicle "${widget.vehicle.vehicleNumber}" deleted successfully'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        // Pop back to vehicles list
+        Navigator.pop(context, true); // Return with refresh signal
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete vehicle: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 } 

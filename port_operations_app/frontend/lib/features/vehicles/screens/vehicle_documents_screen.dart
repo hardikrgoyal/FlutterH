@@ -12,6 +12,7 @@ import '../../auth/auth_service.dart';
 import '../vehicle_providers.dart';
 import 'vehicle_detail_screen.dart';
 import 'add_vehicle_screen.dart';
+import 'edit_vehicle_screen.dart';
 import 'document_viewer_screen.dart';
 
 class VehicleDocumentsScreen extends ConsumerStatefulWidget {
@@ -28,7 +29,7 @@ class _VehicleDocumentsScreenState extends ConsumerState<VehicleDocumentsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -55,7 +56,6 @@ class _VehicleDocumentsScreenState extends ConsumerState<VehicleDocumentsScreen>
           tabs: const [
             Tab(text: 'All Vehicles', icon: Icon(Icons.directions_car)),
             Tab(text: 'Expiring Soon', icon: Icon(Icons.warning_amber)),
-            Tab(text: 'Document Overview', icon: Icon(Icons.description)),
           ],
         ),
       ),
@@ -65,7 +65,6 @@ class _VehicleDocumentsScreenState extends ConsumerState<VehicleDocumentsScreen>
         children: [
           _buildVehiclesTab(canEdit),
           _buildExpiringSoonTab(),
-          _buildDocumentOverviewTab(),
         ],
       ),
       floatingActionButton: canEdit
@@ -108,13 +107,6 @@ class _VehicleDocumentsScreenState extends ConsumerState<VehicleDocumentsScreen>
         message: error.toString(),
         onRetry: () => ref.refresh(expiringSoonDocumentsProvider),
       ),
-    );
-  }
-
-  Widget _buildDocumentOverviewTab() {
-    // This will show overall document statistics
-    return const Center(
-      child: Text('Document Overview - Coming Soon'),
     );
   }
 
@@ -234,7 +226,15 @@ class _VehicleDocumentsScreenState extends ConsumerState<VehicleDocumentsScreen>
                       ],
                     ),
                   ),
-                  _buildStatusChip(vehicle.status, vehicle.statusDisplay),
+                  Row(
+                    children: [
+                      _buildStatusChip(vehicle.status, vehicle.statusDisplay),
+                      if (canEdit) ...[
+                        const SizedBox(width: 8),
+                        _buildVehicleActionsMenu(vehicle),
+                      ],
+                    ],
+                  ),
                 ],
               ),
               if (vehicle.ownerName != null) ...[
@@ -385,112 +385,116 @@ class _VehicleDocumentsScreenState extends ConsumerState<VehicleDocumentsScreen>
   Widget _buildDocumentCard(VehicleDocument document) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${document.vehicleNumber} - ${document.documentTypeDisplay}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        document.documentNumber,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                _buildExpiryChip(document),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(Icons.calendar_today, size: 16, color: AppColors.textSecondary),
-                const SizedBox(width: 4),
-                Text(
-                  'Expires: ${document.expiryDate}',
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                ),
-                const SizedBox(width: 16),
-                Icon(Icons.schedule, size: 16, color: AppColors.textSecondary),
-                const SizedBox(width: 4),
-                Text(
-                  '${document.daysUntilExpiry} days',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: document.daysUntilExpiry <= 7 ? AppColors.error : AppColors.textSecondary,
-                    fontWeight: document.daysUntilExpiry <= 7 ? FontWeight.bold : FontWeight.normal,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.person, size: 16, color: AppColors.textSecondary),
-                const SizedBox(width: 4),
-                Text(
-                  'Added by: ${document.addedByName}',
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                ),
-                if (document.renewedByName != null) ...[
-                  const SizedBox(width: 16),
-                  Icon(Icons.refresh, size: 16, color: AppColors.primary),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Renewed by: ${document.renewedByName}',
-                    style: const TextStyle(fontSize: 12, color: AppColors.primary),
-                  ),
-                ],
-                if (document.updatedByName != null && document.renewedByName == null) ...[
-                  const SizedBox(width: 16),
-                  Icon(Icons.edit, size: 16, color: AppColors.warning),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Updated by: ${document.updatedByName}',
-                    style: const TextStyle(fontSize: 12, color: AppColors.warning),
-                  ),
-                ],
-              ],
-            ),
-            if (document.documentFile != null) ...[
-              const SizedBox(height: 8),
+      child: InkWell(
+        onTap: () => _navigateToVehicleDetailFromDocument(document),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Row(
                 children: [
-                  Icon(Icons.attach_file, size: 16, color: AppColors.primary),
-                  const SizedBox(width: 4),
                   Expanded(
-                    child: Text(
-                      'Document attached',
-                      style: const TextStyle(fontSize: 12, color: AppColors.primary),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${document.vehicleNumber} - ${document.documentTypeDisplay}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          document.documentNumber,
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  TextButton(
-                    onPressed: () => _viewFile(document),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  _buildExpiryChip(document),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Icon(Icons.calendar_today, size: 16, color: AppColors.textSecondary),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Expires: ${document.expiryDate}',
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(width: 16),
+                  Icon(Icons.schedule, size: 16, color: AppColors.textSecondary),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${document.daysUntilExpiry} days',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: document.daysUntilExpiry <= 7 ? AppColors.error : AppColors.textSecondary,
+                      fontWeight: document.daysUntilExpiry <= 7 ? FontWeight.bold : FontWeight.normal,
                     ),
-                    child: const Text('View'),
                   ),
                 ],
               ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.person, size: 16, color: AppColors.textSecondary),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Added by: ${document.addedByName}',
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  ),
+                  if (document.renewedByName != null) ...[
+                    const SizedBox(width: 16),
+                    Icon(Icons.refresh, size: 16, color: AppColors.primary),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Renewed by: ${document.renewedByName}',
+                      style: const TextStyle(fontSize: 12, color: AppColors.primary),
+                    ),
+                  ],
+                  if (document.updatedByName != null && document.renewedByName == null) ...[
+                    const SizedBox(width: 16),
+                    Icon(Icons.edit, size: 16, color: AppColors.warning),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Updated by: ${document.updatedByName}',
+                      style: const TextStyle(fontSize: 12, color: AppColors.warning),
+                    ),
+                  ],
+                ],
+              ),
+              if (document.documentFile != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.attach_file, size: 16, color: AppColors.primary),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        'Document attached',
+                        style: const TextStyle(fontSize: 12, color: AppColors.primary),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => _viewFile(document),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      ),
+                      child: const Text('View'),
+                    ),
+                  ],
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -573,6 +577,167 @@ class _VehicleDocumentsScreenState extends ConsumerState<VehicleDocumentsScreen>
           documentType: document.documentTypeDisplay,
         ),
       ),
+    );
+  }
+
+  Widget _buildVehicleActionsMenu(Vehicle vehicle) {
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert, size: 20),
+      onSelected: (action) => _handleVehicleAction(action, vehicle),
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: 'edit',
+          child: Row(
+            children: [
+              Icon(Icons.edit, size: 18, color: AppColors.primary),
+              SizedBox(width: 8),
+              Text('Edit Vehicle'),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'delete',
+          child: Row(
+            children: [
+              Icon(Icons.delete, size: 18, color: AppColors.error),
+              SizedBox(width: 8),
+              Text('Delete Vehicle'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _handleVehicleAction(String action, Vehicle vehicle) {
+    switch (action) {
+      case 'edit':
+        _editVehicle(vehicle);
+        break;
+      case 'delete':
+        _confirmDeleteVehicle(vehicle);
+        break;
+    }
+  }
+
+  void _editVehicle(Vehicle vehicle) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditVehicleScreen(vehicle: vehicle),
+      ),
+    );
+
+    // Refresh the list if vehicle was updated
+    if (result == true) {
+      ref.refresh(vehiclesProvider(_filters));
+    }
+  }
+
+  void _confirmDeleteVehicle(Vehicle vehicle) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Vehicle'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Are you sure you want to delete vehicle "${vehicle.vehicleNumber}"?'),
+            const SizedBox(height: 12),
+            const Text(
+              'This action cannot be undone. All associated documents will also be deleted.',
+              style: TextStyle(
+                color: AppColors.error,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteVehicle(vehicle);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: AppColors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteVehicle(Vehicle vehicle) async {
+    try {
+      await ref.read(vehicleServiceProvider).deleteVehicle(vehicle.id);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Vehicle "${vehicle.vehicleNumber}" deleted successfully'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        // Refresh the list
+        ref.refresh(vehiclesProvider(_filters));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete vehicle: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  void _navigateToVehicleDetailFromDocument(VehicleDocument document) async {
+    // Find the vehicle from the current vehicles list
+    final vehiclesAsync = ref.read(vehiclesProvider(_filters));
+    vehiclesAsync.when(
+      data: (vehicles) async {
+        final vehicle = vehicles.firstWhere(
+          (v) => v.id == document.vehicle,
+          orElse: () => throw Exception('Vehicle not found'),
+        );
+        
+        if (mounted) {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => VehicleDetailScreen(vehicle: vehicle),
+            ),
+          );
+          
+          // Refresh the list if there were changes
+          if (result == true) {
+            ref.refresh(vehiclesProvider(_filters));
+            ref.refresh(expiringSoonDocumentsProvider);
+          }
+        }
+      },
+      loading: () => {},
+      error: (error, stack) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to open vehicle details: Vehicle not found'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      },
     );
   }
 } 
