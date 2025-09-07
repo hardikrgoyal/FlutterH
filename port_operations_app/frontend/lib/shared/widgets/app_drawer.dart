@@ -168,6 +168,15 @@ class AppDrawer extends ConsumerWidget {
           context.go('/dashboard');
         },
       },
+      {
+        'title': 'Vehicle Documents',
+        'icon': Icons.description,
+        'color': AppColors.accent,
+        'onTap': () {
+          Navigator.pop(context);
+          context.go('/vehicle-documents');
+        },
+      },
     ];
 
     switch (role) {
@@ -208,15 +217,6 @@ class AppDrawer extends ConsumerWidget {
             'onTap': () {
               Navigator.pop(context);
               context.go('/equipment/history');
-            },
-          },
-          {
-            'title': 'Vehicle Documents',
-            'icon': Icons.description,
-            'color': AppColors.accent,
-            'onTap': () {
-              Navigator.pop(context);
-              context.go('/vehicle-documents');
             },
           },
           {
@@ -324,15 +324,6 @@ class AppDrawer extends ConsumerWidget {
             },
           },
           {
-            'title': 'Vehicle Documents',
-            'icon': Icons.description,
-            'color': AppColors.accent,
-            'onTap': () {
-              Navigator.pop(context);
-              context.go('/vehicle-documents');
-            },
-          },
-          {
             'title': 'Labour Costs',
             'icon': MdiIcons.accountGroup,
             'color': AppColors.warning,
@@ -419,15 +410,6 @@ class AppDrawer extends ConsumerWidget {
             },
           },
           {
-            'title': 'Vehicle Documents',
-            'icon': Icons.description,
-            'color': AppColors.accent,
-            'onTap': () {
-              Navigator.pop(context);
-              context.go('/vehicle-documents');
-            },
-          },
-          {
             'title': 'Labour Costs',
             'icon': MdiIcons.accountGroup,
             'color': AppColors.warning,
@@ -441,15 +423,6 @@ class AppDrawer extends ConsumerWidget {
       case 'accountant':
         return [
           ...baseItems,
-          {
-            'title': 'Vehicle Documents',
-            'icon': Icons.description,
-            'color': AppColors.accent,
-            'onTap': () {
-              Navigator.pop(context);
-              context.go('/vehicle-documents');
-            },
-          },
           {
             'title': 'Expense Approvals',
             'icon': Icons.check_circle,
