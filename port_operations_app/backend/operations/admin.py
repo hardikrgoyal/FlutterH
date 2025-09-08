@@ -3,7 +3,9 @@ from .models import (
     CargoOperation, RateMaster, Equipment, EquipmentRateMaster, TransportDetail, 
     LabourCost, MiscellaneousCost, RevenueStream,
     VehicleType, WorkType, PartyMaster, ContractorMaster, ServiceTypeMaster, UnitTypeMaster,
-    Vehicle, VehicleDocument
+    Vehicle, VehicleDocument,
+    # Maintenance system models
+    Vendor, WorkOrder, PurchaseOrder, POItem, Stock, IssueSlip
 )
 
 @admin.register(CargoOperation)
@@ -156,3 +158,115 @@ class RevenueStreamAdmin(admin.ModelAdmin):
     search_fields = ['party', 'operation__operation_name']
     readonly_fields = ['amount', 'created_at', 'updated_at']
     date_hierarchy = 'date'
+
+# === MAINTENANCE SYSTEM ADMIN ===
+
+@admin.register(Vendor)
+class VendorAdmin(admin.ModelAdmin):
+    list_display = ['name', 'contact_person', 'phone_number', 'is_active', 'created_at']
+    list_filter = ['is_active', 'created_at']
+    search_fields = ['name', 'contact_person', 'phone_number']
+    readonly_fields = ['created_by', 'created_at']
+    
+    def save_model(self, request, obj, form, change):
+        if not change:  # Creating new object
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(WorkOrder)
+class WorkOrderAdmin(admin.ModelAdmin):
+    list_display = ['wo_id', 'vendor', 'vehicle', 'vehicle_other', 'category', 'status', 'created_at']
+    list_filter = ['status', 'category', 'created_at', 'vendor']
+    search_fields = ['wo_id', 'vendor__name', 'vehicle__vehicle_number', 'vehicle_other']
+    readonly_fields = ['wo_id', 'created_by', 'created_at', 'updated_at']
+    
+    fieldsets = (
+        (None, {
+            'fields': ('wo_id', 'vendor', 'vehicle', 'vehicle_other', 'category', 'status')
+        }),
+        ('Remarks', {
+            'fields': ('remark_text', 'remark_audio')
+        }),
+        ('Links & Bill', {
+            'fields': ('linked_po', 'bill_no')
+        }),
+        ('Audit', {
+            'fields': ('created_by', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+    
+    def save_model(self, request, obj, form, change):
+        if not change:  # Creating new object
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(PurchaseOrder)
+class PurchaseOrderAdmin(admin.ModelAdmin):
+    list_display = ['po_id', 'vendor', 'vehicle', 'vehicle_other', 'for_stock', 'category', 'status', 'created_at']
+    list_filter = ['status', 'category', 'for_stock', 'created_at', 'vendor']
+    search_fields = ['po_id', 'vendor__name', 'vehicle__vehicle_number', 'vehicle_other']
+    readonly_fields = ['po_id', 'created_by', 'created_at', 'updated_at']
+    
+    fieldsets = (
+        (None, {
+            'fields': ('po_id', 'vendor', 'vehicle', 'vehicle_other', 'for_stock', 'category', 'status')
+        }),
+        ('Remarks', {
+            'fields': ('remark_text', 'remark_audio')
+        }),
+        ('Links & Bill', {
+            'fields': ('linked_wo', 'bill_no')
+        }),
+        ('Audit', {
+            'fields': ('created_by', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+    
+    def save_model(self, request, obj, form, change):
+        if not change:  # Creating new object
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+
+class POItemInline(admin.TabularInline):
+    model = POItem
+    extra = 0
+    readonly_fields = ['amount', 'created_by', 'created_at', 'updated_at']
+
+
+@admin.register(POItem)
+class POItemAdmin(admin.ModelAdmin):
+    list_display = ['item_name', 'purchase_order', 'quantity', 'rate', 'amount', 'assigned_vehicle', 'for_stock']
+    list_filter = ['for_stock', 'created_at', 'purchase_order__vendor']
+    search_fields = ['item_name', 'purchase_order__po_id']
+    readonly_fields = ['amount', 'created_by', 'created_at', 'updated_at']
+    
+    def save_model(self, request, obj, form, change):
+        if not change:  # Creating new object
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(Stock)
+class StockAdmin(admin.ModelAdmin):
+    list_display = ['item_name', 'quantity_in_hand', 'unit', 'source_po', 'last_issue_date']
+    list_filter = ['unit', 'last_issue_date', 'created_at']
+    search_fields = ['item_name', 'source_po__po_id']
+    readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(IssueSlip)
+class IssueSlipAdmin(admin.ModelAdmin):
+    list_display = ['slip_id', 'stock_item', 'issued_quantity', 'assigned_vehicle', 'assigned_vehicle_other', 'issued_at']
+    list_filter = ['issued_at', 'stock_item']
+    search_fields = ['slip_id', 'stock_item__item_name', 'assigned_vehicle__vehicle_number', 'assigned_vehicle_other']
+    readonly_fields = ['slip_id', 'issued_by', 'issued_at']
+    
+    def save_model(self, request, obj, form, change):
+        if not change:  # Creating new object
+            obj.issued_by = request.user
+        super().save_model(request, obj, form, change)

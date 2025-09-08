@@ -10,6 +10,8 @@ class User(AbstractUser):
         ('manager', 'Manager'),
         ('supervisor', 'Supervisor'),
         ('accountant', 'Accountant'),
+        ('office_boy', 'Office Boy'),
+        ('office', 'Office'),
     ]
     
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='supervisor')
@@ -38,6 +40,14 @@ class User(AbstractUser):
     def is_accountant(self):
         return self.role == 'accountant'
     
+    @property
+    def is_office_boy(self):
+        return self.role == 'office_boy'
+    
+    @property
+    def is_office(self):
+        return self.role == 'office'
+    
     def has_permission(self, permission):
         """
         Check if user has specific permission based on role
@@ -48,20 +58,33 @@ class User(AbstractUser):
                 'create_operations', 'manage_operations', 'enter_expenses',
                 'field_data_entry', 'view_wallet', 'submit_vouchers',
                 'approve_financial', 'topup_wallets', 'log_tally', 'enter_revenue',
-                'manage_vehicle_documents', 'view_vehicle_documents'
+                'manage_vehicle_documents', 'view_vehicle_documents',
+                'create_work_orders', 'manage_work_orders', 'create_purchase_orders',
+                'manage_purchase_orders', 'manage_vendors', 'enter_bill_numbers',
+                'manage_stock', 'create_issue_slips', 'itemize_purchase_orders'
             ],
             'manager': [
                 'create_operations', 'manage_operations', 'approve_supervisor_entries',
                 'enter_expenses', 'configure_rates', 'enter_revenue',
-                'manage_vehicle_documents', 'view_vehicle_documents'
+                'manage_vehicle_documents', 'view_vehicle_documents',
+                'create_work_orders', 'manage_work_orders', 'create_purchase_orders',
+                'manage_purchase_orders', 'manage_vendors', 'enter_bill_numbers',
+                'manage_stock', 'create_issue_slips', 'itemize_purchase_orders'
             ],
             'supervisor': [
                 'field_data_entry', 'view_wallet', 'submit_vouchers',
-                'start_equipment', 'end_equipment', 'view_vehicle_documents'
+                'start_equipment', 'end_equipment', 'view_vehicle_documents',
+                'create_work_orders', 'create_purchase_orders', 'view_stock'
             ],
             'accountant': [
                 'approve_financial', 'topup_wallets', 'log_tally', 'enter_revenue',
                 'manage_vehicle_documents', 'view_vehicle_documents'
+            ],
+            'office_boy': [
+                'enter_bill_numbers', 'itemize_purchase_orders'
+            ],
+            'office': [
+                'itemize_purchase_orders', 'manage_purchase_orders'
             ]
         }
         

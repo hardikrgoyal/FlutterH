@@ -291,6 +291,34 @@ class AppDrawer extends ConsumerWidget {
               context.go('/voucher-approvals');
             },
           },
+          // Maintenance System
+          {
+            'title': 'Work Orders',
+            'icon': Icons.build,
+            'color': AppColors.primary,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/maintenance/work-orders');
+            },
+          },
+          {
+            'title': 'Purchase Orders',
+            'icon': Icons.shopping_cart,
+            'color': AppColors.secondary,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/maintenance/purchase-orders');
+            },
+          },
+          {
+            'title': 'Vendors',
+            'icon': Icons.business,
+            'color': AppColors.info,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/maintenance/vendors');
+            },
+          },
         ];
 
       case 'manager':
@@ -386,6 +414,34 @@ class AppDrawer extends ConsumerWidget {
               context.go('/approvals');
             },
           },
+          // Maintenance System
+          {
+            'title': 'Work Orders',
+            'icon': Icons.build,
+            'color': AppColors.primary,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/maintenance/work-orders');
+            },
+          },
+          {
+            'title': 'Purchase Orders',
+            'icon': Icons.shopping_cart,
+            'color': AppColors.secondary,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/maintenance/purchase-orders');
+            },
+          },
+          {
+            'title': 'Vendors',
+            'icon': Icons.business,
+            'color': AppColors.info,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/maintenance/vendors');
+            },
+          },
         ];
 
       case 'supervisor':
@@ -416,6 +472,25 @@ class AppDrawer extends ConsumerWidget {
             'onTap': () {
               Navigator.pop(context);
               context.go('/labour');
+            },
+          },
+          // Maintenance System (Limited Access)
+          {
+            'title': 'Work Orders',
+            'icon': Icons.build,
+            'color': AppColors.primary,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/maintenance/work-orders');
+            },
+          },
+          {
+            'title': 'Purchase Orders',
+            'icon': Icons.shopping_cart,
+            'color': AppColors.secondary,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/maintenance/purchase-orders');
             },
           },
         ];

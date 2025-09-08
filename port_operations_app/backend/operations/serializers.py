@@ -3,7 +3,9 @@ from .models import (
     CargoOperation, RateMaster, Equipment, EquipmentRateMaster, TransportDetail, 
     LabourCost, MiscellaneousCost, RevenueStream,
     VehicleType, WorkType, PartyMaster, ContractorMaster, ServiceTypeMaster, UnitTypeMaster,
-    Vehicle, VehicleDocument
+    Vehicle, VehicleDocument,
+    # Maintenance system models
+    Vendor, WorkOrder, PurchaseOrder, POItem, Stock, IssueSlip, WorkOrderPurchaseLink
 )
 
 class CargoOperationSerializer(serializers.ModelSerializer):
@@ -347,3 +349,162 @@ class RevenueStreamSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['created_by'] = self.context['request'].user
         return super().create(validated_data) 
+
+
+# === MAINTENANCE SYSTEM SERIALIZERS ===
+
+class VendorSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    
+    class Meta:
+        model = Vendor
+        fields = '__all__'
+        read_only_fields = ['created_by', 'created_at']
+    
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class WorkOrderPurchaseLinkSerializer(serializers.ModelSerializer):
+    work_order_wo_id = serializers.CharField(source='work_order.wo_id', read_only=True)
+    purchase_order_po_id = serializers.CharField(source='purchase_order.po_id', read_only=True)
+
+    class Meta:
+        model = WorkOrderPurchaseLink
+        fields = ['id', 'work_order', 'purchase_order', 'work_order_wo_id', 'purchase_order_po_id', 'created_by', 'created_at']
+        read_only_fields = ['created_by', 'created_at']
+
+
+class WorkOrderSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    vendor_name = serializers.CharField(source='vendor.name', read_only=True)
+    vehicle_number = serializers.CharField(source='vehicle.vehicle_number', read_only=True)
+    linked_po_id = serializers.CharField(source='linked_po.po_id', read_only=True)
+    linked_po_ids = serializers.SerializerMethodField()
+
+    class Meta:
+        model = WorkOrder
+        fields = '__all__'
+        read_only_fields = ['wo_id', 'created_by', 'created_at', 'updated_at']
+
+    def get_linked_po_ids(self, obj):
+        return [link.purchase_order.po_id for link in obj.po_links.all()]
+
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        return super().create(validated_data)
+    
+    def validate(self, data):
+        # Ensure either vehicle or vehicle_other is provided
+        if not data.get('vehicle') and not data.get('vehicle_other'):
+            raise serializers.ValidationError("Either vehicle or vehicle_other must be provided")
+        return data
+
+
+class PurchaseOrderSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    vendor_name = serializers.CharField(source='vendor.name', read_only=True)
+    vehicle_number = serializers.CharField(source='vehicle.vehicle_number', read_only=True)
+    linked_wo_id = serializers.CharField(source='linked_wo.wo_id', read_only=True)
+    duplicate_warning = serializers.SerializerMethodField()
+    items_count = serializers.SerializerMethodField()
+    total_amount = serializers.SerializerMethodField()
+    linked_wo_ids = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PurchaseOrder
+        fields = '__all__'
+        read_only_fields = ['po_id', 'created_by', 'created_at', 'updated_at']
+
+    def get_linked_wo_ids(self, obj):
+        return [link.work_order.wo_id for link in obj.wo_links.all()]
+
+    def get_duplicate_warning(self, obj):
+        if hasattr(obj, '_duplicate_warning'):
+            return obj._duplicate_warning
+        return obj.check_duplicate_po_warning()
+    
+    def get_items_count(self, obj):
+        return obj.items.count()
+    
+    def get_total_amount(self, obj):
+        return sum(item.amount for item in obj.items.all())
+    
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        
+        # Check for duplicate PO warning
+        po = PurchaseOrder(**validated_data)
+        duplicate_warning = po.check_duplicate_po_warning()
+        if duplicate_warning:
+            po._duplicate_warning = duplicate_warning
+        
+        return super().create(validated_data)
+    
+    def validate(self, data):
+        # Ensure either vehicle, vehicle_other, or for_stock is specified
+        if not data.get('for_stock'):
+            if not data.get('vehicle') and not data.get('vehicle_other'):
+                raise serializers.ValidationError("Either vehicle, vehicle_other, or for_stock must be specified")
+        return data
+
+
+class POItemSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    purchase_order_id = serializers.CharField(source='purchase_order.po_id', read_only=True)
+    assigned_vehicle_number = serializers.CharField(source='assigned_vehicle.vehicle_number', read_only=True)
+    quantity = serializers.DecimalField(max_digits=10, decimal_places=3)
+    rate = serializers.DecimalField(max_digits=10, decimal_places=2)
+    
+    class Meta:
+        model = POItem
+        fields = '__all__'
+        read_only_fields = ['amount', 'created_by', 'created_at', 'updated_at']
+    
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class StockSerializer(serializers.ModelSerializer):
+    source_po_id = serializers.CharField(source='source_po.po_id', read_only=True)
+    source_po_item_name = serializers.CharField(source='source_po_item.item_name', read_only=True)
+    vendor_name = serializers.CharField(source='source_po.vendor.name', read_only=True)
+    
+    class Meta:
+        model = Stock
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class IssueSlipSerializer(serializers.ModelSerializer):
+    issued_by_name = serializers.CharField(source='issued_by.username', read_only=True)
+    stock_item_name = serializers.CharField(source='stock_item.item_name', read_only=True)
+    assigned_vehicle_number = serializers.CharField(source='assigned_vehicle.vehicle_number', read_only=True)
+    
+    class Meta:
+        model = IssueSlip
+        fields = '__all__'
+        read_only_fields = ['slip_id', 'issued_by', 'issued_at']
+    
+    def create(self, validated_data):
+        validated_data['issued_by'] = self.context['request'].user
+        return super().create(validated_data)
+    
+    def validate(self, data):
+        # Check if sufficient stock is available
+        stock_item = data.get('stock_item')
+        issued_quantity = data.get('issued_quantity')
+        
+        if stock_item and issued_quantity:
+            if issued_quantity > stock_item.quantity_in_hand:
+                raise serializers.ValidationError(
+                    f"Insufficient stock. Available: {stock_item.quantity_in_hand}, Requested: {issued_quantity}"
+                )
+        
+        # Ensure either assigned_vehicle or assigned_vehicle_other is provided
+        if not data.get('assigned_vehicle') and not data.get('assigned_vehicle_other'):
+            raise serializers.ValidationError("Either assigned_vehicle or assigned_vehicle_other must be provided")
+        
+        return data 

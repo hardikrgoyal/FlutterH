@@ -1,0 +1,964 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../shared/widgets/loading_widget.dart';
+import '../../../shared/models/purchase_order_model.dart';
+import '../../../shared/models/work_order_model.dart';
+import '../../../shared/models/user_model.dart';
+import '../services/purchase_order_service.dart';
+import '../services/work_order_service.dart';
+import '../../auth/auth_service.dart';
+import 'po_items_screen.dart';
+import 'work_order_detail_screen.dart';
+
+class PurchaseOrderDetailScreen extends ConsumerStatefulWidget {
+  final PurchaseOrder purchaseOrder;
+
+  const PurchaseOrderDetailScreen({
+    super.key,
+    required this.purchaseOrder,
+  });
+
+  @override
+  ConsumerState<PurchaseOrderDetailScreen> createState() => _PurchaseOrderDetailScreenState();
+}
+
+class _PurchaseOrderDetailScreenState extends ConsumerState<PurchaseOrderDetailScreen> {
+  late PurchaseOrder _purchaseOrder;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _purchaseOrder = widget.purchaseOrder;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final authState = ref.watch(authStateProvider);
+    final user = authState.user;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_purchaseOrder.poId),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        actions: [
+          if (user?.canManagePurchaseOrders == true)
+            PopupMenuButton<String>(
+              onSelected: (String action) {
+                _handlePurchaseOrderAction(action, user!);
+              },
+              itemBuilder: (BuildContext context) => [
+                if (_purchaseOrder.isOpen)
+                  const PopupMenuItem(
+                    value: 'close',
+                    child: Text('Close Purchase Order'),
+                  ),
+                if (user?.canEnterBillNumbers == true)
+                  const PopupMenuItem(
+                    value: 'bill',
+                    child: Text('Update Bill Number'),
+                  ),
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Text('Edit Purchase Order'),
+                ),
+                const PopupMenuItem(
+                  value: 'items',
+                  child: Text('Manage Items'),
+                ),
+              ],
+            ),
+        ],
+      ),
+      body: _isLoading
+          ? const LoadingWidget()
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildStatusCard(),
+                  const SizedBox(height: 16),
+                  if (_purchaseOrder.hasDuplicateWarning)
+                    _buildDuplicateWarningCard(),
+                  if (_purchaseOrder.hasDuplicateWarning)
+                    const SizedBox(height: 16),
+                  _buildBasicInfoCard(),
+                  const SizedBox(height: 16),
+                  _buildVendorTargetCard(),
+                  const SizedBox(height: 16),
+                  _buildItemsCard(),
+                  const SizedBox(height: 16),
+                  _buildDetailsCard(),
+                  if (_purchaseOrder.remarkText?.isNotEmpty == true) ...[
+                    const SizedBox(height: 16),
+                    _buildRemarksCard(),
+                  ],
+                  if (_purchaseOrder.remarkAudio != null) ...[
+                    const SizedBox(height: 16),
+                    _buildAudioCard(),
+                  ],
+                  const SizedBox(height: 16),
+                  _buildMetadataCard(),
+                  const SizedBox(height: 80), // Extra space for content
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildStatusCard() {
+    final statusColor = _purchaseOrder.isOpen ? Colors.blue : Colors.grey;
+    
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: statusColor,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                _purchaseOrder.statusDisplay,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Purchase Order Status',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                    ),
+                  ),
+                  Text(
+                    _purchaseOrder.isOpen ? 'Active purchase order' : 'Completed purchase order',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDuplicateWarningCard() {
+    return Card(
+      color: Colors.orange[50],
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(Icons.warning, color: Colors.orange[700], size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Duplicate Warning',
+                    style: TextStyle(
+                      color: Colors.orange[800],
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Similar purchase order exists for this vendor/vehicle combination',
+                    style: TextStyle(
+                      color: Colors.orange[700],
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBasicInfoCard() {
+    final authState = ref.watch(authStateProvider);
+    final user = authState.user;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Purchase Order Information',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildInfoRow('Purchase Order ID', _purchaseOrder.poId),
+            _buildInfoRow('Category', _purchaseOrder.categoryDisplay),
+            _buildInfoRow('Target Type', _purchaseOrder.forStock ? 'For Stock' : 'For Vehicle'),
+            if (_purchaseOrder.billNo != null)
+              _buildInfoRow('Bill Number', _purchaseOrder.billNo!),
+            _buildLinkManagementRow(user?.canManagePurchaseOrders == true),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVendorTargetCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Vendor & Target Details',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildInfoRow('Vendor', _purchaseOrder.vendorName ?? 'Unknown'),
+            _buildInfoRow('Target', _purchaseOrder.displayTarget),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildItemsCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Items & Costs',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (_purchaseOrder.isOpen)
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => POItemsScreen(purchaseOrder: _purchaseOrder),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.edit, size: 16),
+                    label: const Text('Manage'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildInfoRow('Items Count', '${_purchaseOrder.itemsCount ?? 0} items'),
+            if ((_purchaseOrder.totalAmount ?? 0) > 0)
+              _buildInfoRow('Total Amount', '₹${(_purchaseOrder.totalAmount ?? 0).toStringAsFixed(2)}'),
+            if ((_purchaseOrder.itemsCount ?? 0) == 0) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info, color: Colors.amber[700], size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'No items added yet. Add items to complete the purchase order.',
+                        style: TextStyle(
+                          color: Colors.amber[800],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailsCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Purchase Details',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildInfoRow('Purchase Category', _purchaseOrder.categoryDisplay),
+            _buildInfoRow('Delivery Timeline', 'TBD'), // Could be added to model
+            _buildInfoRow('Priority', 'Normal'), // Default priority
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRemarksCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Purchase Description',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Text(
+                _purchaseOrder.remarkText!,
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAudioCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Audio Notes',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.audiotrack, color: Colors.blue[700]),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Audio note available',
+                      style: TextStyle(fontSize: 14),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      // TODO: Implement audio playback
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Audio playback - Coming Soon!')),
+                      );
+                    },
+                    icon: Icon(Icons.play_arrow, color: Colors.blue[700]),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMetadataCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Creation Details',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildInfoRow('Created By', _purchaseOrder.createdByName ?? 'Unknown'),
+            _buildInfoRow('Created On', _purchaseOrder.createdAt ?? 'Unknown'),
+            if (_purchaseOrder.updatedAt != null && _purchaseOrder.updatedAt != _purchaseOrder.createdAt)
+              _buildInfoRow('Last Updated', _purchaseOrder.updatedAt!),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              '$label:',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 14,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLinkManagementRow(bool canManage) {
+    final hasLink = (_purchaseOrder.linkedWoId != null) || ((_purchaseOrder.linkedWoIds ?? []).isNotEmpty);
+    final ids = <String>[];
+    if (_purchaseOrder.linkedWoId != null) ids.add(_purchaseOrder.linkedWoId!);
+    if (_purchaseOrder.linkedWoIds != null) ids.addAll(_purchaseOrder.linkedWoIds!);
+
+    final wosAsync = ref.watch(workOrdersProvider('open'));
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('Linked WOs', style: TextStyle(fontWeight: FontWeight.w500)),
+              const Spacer(),
+              if (canManage)
+                wosAsync.when(
+                  data: (wos) {
+                    final availableCount = wos.where((w) => w.status == 'open').length; // Count all open WOs (since one WO can have multiple POs)
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(10)),
+                          child: Text('$availableCount', style: const TextStyle(fontSize: 12)),
+                        ),
+                        const SizedBox(width: 6),
+                        TextButton.icon(
+                          onPressed: _onLinkWo,
+                          icon: const Icon(Icons.link, size: 16),
+                          label: const Text('Link WO'),
+                          style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+                        ),
+                      ],
+                    );
+                  },
+                  loading: () => TextButton.icon(
+                    onPressed: _onLinkWo,
+                    icon: const Icon(Icons.link, size: 16),
+                    label: const Text('Link WO'),
+                    style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+                  ),
+                  error: (_, __) => TextButton.icon(
+                    onPressed: _onLinkWo,
+                    icon: const Icon(Icons.link, size: 16),
+                    label: const Text('Link WO'),
+                    style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (!hasLink) const Text('None', style: TextStyle(color: Colors.grey)),
+          if (hasLink)
+            wosAsync.when(
+              data: (wos) {
+                final items = ids.map((woId) {
+                  final match = wos.where((w) => w.woId == woId).toList();
+                  final wo = match.isNotEmpty ? match.first : null;
+                  final subtitle = wo != null
+                      ? '${wo.vendorName ?? '-'} • ${wo.displayVehicle}'
+                      : 'Tap to open';
+                  return _LinkedInfoChip(
+                    title: woId,
+                    subtitle: subtitle,
+                    leadingIcon: Icons.home_repair_service,
+                    onTap: () => _openWoById(woId),
+                    onRemove: canManage ? () => _unlinkWoById(woId) : null,
+                  );
+                }).toList();
+                return Wrap(spacing: 8, runSpacing: 8, children: items);
+              },
+              loading: () => Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: ids.map((woId) => _LinkedInfoChip(
+                  title: woId,
+                  subtitle: 'Loading...',
+                  leadingIcon: Icons.home_repair_service,
+                  onTap: () {},
+                )).toList(),
+              ),
+              error: (_, __) => Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: ids.map((woId) => _LinkedInfoChip(
+                  title: woId,
+                  subtitle: 'Tap to open',
+                  leadingIcon: Icons.home_repair_service,
+                  onTap: () => _openWoById(woId),
+                  onRemove: canManage ? () => _unlinkWoById(woId) : null,
+                )).toList(),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _onLinkWo() async {
+    try {
+      final wos = await ref.read(workOrdersProvider('open').future);
+      // Only open WOs with no linked POs
+      final available = wos.where((w) => w.status == 'open').toList(); // Show all open WOs (since one WO can have multiple POs)
+      if (available.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No available open WOs to link')),
+          );
+        }
+        return;
+      }
+
+      WorkOrder? selected;
+      await showDialog(
+        context: context,
+        builder: (context) {
+          return StatefulBuilder(
+            builder: (context, setState) {
+              return AlertDialog(
+                title: const Text('Link Work Order'),
+                content: DropdownButtonFormField<WorkOrder>(
+                  value: selected,
+                  decoration: const InputDecoration(
+                    labelText: 'Select WO',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: available.map((wo) => DropdownMenuItem<WorkOrder>(
+                    value: wo,
+                    child: Text('${wo.woId} - ${wo.displayVehicle}'),
+                  )).toList(),
+                  onChanged: (value) => setState(() => selected = value),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed: selected == null ? null : () => Navigator.pop(context, selected),
+                    child: const Text('Link'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      ).then((value) => selected = value as WorkOrder?);
+
+      if (selected == null) return;
+
+      setState(() => _isLoading = true);
+      final service = ref.read(purchaseOrderServiceProvider);
+      await service.linkWorkOrder(_purchaseOrder.id!, selected!.id!);
+
+      // Cross-refresh: invalidate both PO and WO lists
+      ref.invalidate(purchaseOrdersProvider('open'));
+      ref.invalidate(workOrdersProvider('open'));
+
+      setState(() {
+        _isLoading = false;
+        final updatedIds = <String>[...(_purchaseOrder.linkedWoIds ?? [])];
+        updatedIds.add(selected!.woId);
+        _purchaseOrder = PurchaseOrder(
+          id: _purchaseOrder.id,
+          poId: _purchaseOrder.poId,
+          vendor: _purchaseOrder.vendor,
+          vendorName: _purchaseOrder.vendorName,
+          vehicle: _purchaseOrder.vehicle,
+          vehicleNumber: _purchaseOrder.vehicleNumber,
+          vehicleOther: _purchaseOrder.vehicleOther,
+          forStock: _purchaseOrder.forStock,
+          category: _purchaseOrder.category,
+          remarkText: _purchaseOrder.remarkText,
+          remarkAudio: _purchaseOrder.remarkAudio,
+          status: _purchaseOrder.status,
+          linkedWo: _purchaseOrder.linkedWo,
+          linkedWoId: _purchaseOrder.linkedWoId,
+          linkedWoIds: updatedIds,
+          billNo: _purchaseOrder.billNo,
+          duplicateWarning: _purchaseOrder.duplicateWarning,
+          itemsCount: _purchaseOrder.itemsCount,
+          totalAmount: _purchaseOrder.totalAmount,
+          createdBy: _purchaseOrder.createdBy,
+          createdByName: _purchaseOrder.createdByName,
+          createdAt: _purchaseOrder.createdAt,
+          updatedAt: _purchaseOrder.updatedAt,
+        );
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('WO linked successfully')),
+        );
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to link WO: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _openWoById(String woId) async {
+    try {
+      final wos = await ref.read(workOrdersProvider('open').future);
+      final match = wos.firstWhere((w) => w.woId == woId, orElse: () => wos.isNotEmpty ? wos.first : throw Exception('WO not found'));
+      if (!mounted) return;
+      Navigator.push(context, MaterialPageRoute(builder: (_) => WorkOrderDetailScreen(workOrder: match)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Unable to open WO')));
+    }
+  }
+
+  Future<void> _unlinkWoById(String woId) async {
+    try {
+      final wos = await ref.read(workOrdersProvider('open').future);
+      final selected = wos.firstWhere((w) => w.woId == woId);
+      setState(() => _isLoading = true);
+      await ref.read(purchaseOrderServiceProvider).unlinkWorkOrder(_purchaseOrder.id!, selected.id!);
+      ref.invalidate(purchaseOrdersProvider('open'));
+      ref.invalidate(workOrdersProvider('open'));
+
+      setState(() {
+        _isLoading = false;
+        final updatedIds = <String>[...(_purchaseOrder.linkedWoIds ?? [])];
+        updatedIds.remove(woId);
+        _purchaseOrder = PurchaseOrder(
+          id: _purchaseOrder.id,
+          poId: _purchaseOrder.poId,
+          vendor: _purchaseOrder.vendor,
+          vendorName: _purchaseOrder.vendorName,
+          vehicle: _purchaseOrder.vehicle,
+          vehicleNumber: _purchaseOrder.vehicleNumber,
+          vehicleOther: _purchaseOrder.vehicleOther,
+          forStock: _purchaseOrder.forStock,
+          category: _purchaseOrder.category,
+          remarkText: _purchaseOrder.remarkText,
+          remarkAudio: _purchaseOrder.remarkAudio,
+          status: _purchaseOrder.status,
+          linkedWo: _purchaseOrder.linkedWo,
+          linkedWoId: _purchaseOrder.linkedWoId == woId ? null : _purchaseOrder.linkedWoId,
+          linkedWoIds: updatedIds,
+          billNo: _purchaseOrder.billNo,
+          duplicateWarning: _purchaseOrder.duplicateWarning,
+          itemsCount: _purchaseOrder.itemsCount,
+          totalAmount: _purchaseOrder.totalAmount,
+          createdBy: _purchaseOrder.createdBy,
+          createdByName: _purchaseOrder.createdByName,
+          createdAt: _purchaseOrder.createdAt,
+          updatedAt: _purchaseOrder.updatedAt,
+        );
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('WO unlinked successfully')));
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to unlink: $e')));
+      }
+    }
+  }
+
+  void _handlePurchaseOrderAction(String action, User user) {
+    switch (action) {
+      case 'edit':
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Edit Purchase Order - Coming Soon!')),
+        );
+        break;
+      case 'close':
+        _closePurchaseOrder();
+        break;
+      case 'bill':
+        _updateBillNumber();
+        break;
+      case 'items':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => POItemsScreen(purchaseOrder: _purchaseOrder),
+          ),
+        );
+        break;
+    }
+  }
+
+  void _closePurchaseOrder() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Close Purchase Order'),
+        content: Text('Are you sure you want to close purchase order ${_purchaseOrder.poId}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              setState(() => _isLoading = true);
+              
+              try {
+                final service = ref.read(purchaseOrderServiceProvider);
+                await service.closePurchaseOrder(_purchaseOrder.id!);
+                
+                setState(() {
+                  _purchaseOrder = PurchaseOrder(
+                    id: _purchaseOrder.id,
+                    poId: _purchaseOrder.poId,
+                    vendor: _purchaseOrder.vendor,
+                    vendorName: _purchaseOrder.vendorName,
+                    vehicle: _purchaseOrder.vehicle,
+                    vehicleNumber: _purchaseOrder.vehicleNumber,
+                    vehicleOther: _purchaseOrder.vehicleOther,
+                    forStock: _purchaseOrder.forStock,
+                    category: _purchaseOrder.category,
+                    remarkText: _purchaseOrder.remarkText,
+                    remarkAudio: _purchaseOrder.remarkAudio,
+                    status: 'closed',
+                    linkedWo: _purchaseOrder.linkedWo,
+                    linkedWoId: _purchaseOrder.linkedWoId,
+                    billNo: _purchaseOrder.billNo,
+                    duplicateWarning: _purchaseOrder.duplicateWarning,
+                    itemsCount: _purchaseOrder.itemsCount,
+                    totalAmount: _purchaseOrder.totalAmount,
+                    createdBy: _purchaseOrder.createdBy,
+                    createdByName: _purchaseOrder.createdByName,
+                    createdAt: _purchaseOrder.createdAt,
+                    updatedAt: _purchaseOrder.updatedAt,
+                  );
+                  _isLoading = false;
+                });
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Purchase order closed successfully')),
+                );
+              } catch (e) {
+                setState(() => _isLoading = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error: $e')),
+                );
+              }
+            },
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _updateBillNumber() {
+    final controller = TextEditingController(text: _purchaseOrder.billNo);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Update Bill Number'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Bill Number',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final billNo = controller.text.trim();
+              if (billNo.isEmpty) return;
+              
+              Navigator.pop(context);
+              setState(() => _isLoading = true);
+              
+              try {
+                final service = ref.read(purchaseOrderServiceProvider);
+                await service.updateBillNumber(_purchaseOrder.id!, billNo);
+                
+                setState(() {
+                  _purchaseOrder = PurchaseOrder(
+                    id: _purchaseOrder.id,
+                    poId: _purchaseOrder.poId,
+                    vendor: _purchaseOrder.vendor,
+                    vendorName: _purchaseOrder.vendorName,
+                    vehicle: _purchaseOrder.vehicle,
+                    vehicleNumber: _purchaseOrder.vehicleNumber,
+                    vehicleOther: _purchaseOrder.vehicleOther,
+                    forStock: _purchaseOrder.forStock,
+                    category: _purchaseOrder.category,
+                    remarkText: _purchaseOrder.remarkText,
+                    remarkAudio: _purchaseOrder.remarkAudio,
+                    status: _purchaseOrder.status,
+                    linkedWo: _purchaseOrder.linkedWo,
+                    linkedWoId: _purchaseOrder.linkedWoId,
+                    billNo: billNo,
+                    duplicateWarning: _purchaseOrder.duplicateWarning,
+                    itemsCount: _purchaseOrder.itemsCount,
+                    totalAmount: _purchaseOrder.totalAmount,
+                    createdBy: _purchaseOrder.createdBy,
+                    createdByName: _purchaseOrder.createdByName,
+                    createdAt: _purchaseOrder.createdAt,
+                    updatedAt: _purchaseOrder.updatedAt,
+                  );
+                  _isLoading = false;
+                });
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Bill number updated successfully')),
+                );
+              } catch (e) {
+                setState(() => _isLoading = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error: $e')),
+                );
+              }
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+  }
+} 
+
+class _LinkedInfoChip extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData leadingIcon;
+  final VoidCallback onTap;
+  final VoidCallback? onRemove;
+  const _LinkedInfoChip({required this.title, required this.subtitle, required this.leadingIcon, required this.onTap, this.onRemove});
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.grey[100],
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.grey[300]!)),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(leadingIcon, size: 16, color: Colors.grey[700]),
+              const SizedBox(width: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 260),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Text(subtitle, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.grey[700], fontSize: 12)),
+                  ],
+                ),
+              ),
+              if (onRemove != null) ...[
+                const SizedBox(width: 8),
+                InkWell(onTap: onRemove!, child: const Icon(Icons.close, size: 16)),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+} 

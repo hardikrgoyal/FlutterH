@@ -23,6 +23,9 @@ class AuthService {
 
       final loginResponse = LoginResponse.fromJson(response.data);
       
+      print('🔐 Login success - Access token length: ${loginResponse.access.length}');
+      print('🔐 Login success - Refresh token length: ${loginResponse.refresh.length}');
+      
       // Store tokens and user data
       await _apiService.setTokens(loginResponse.access, loginResponse.refresh);
       await _storage.write(
@@ -30,6 +33,7 @@ class AuthService {
         value: jsonEncode(loginResponse.user.toJson()),
       );
 
+      print('🔐 Tokens stored successfully');
       return loginResponse;
     } catch (e) {
       rethrow;

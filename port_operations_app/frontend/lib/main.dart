@@ -31,6 +31,11 @@ import 'features/miscellaneous/screens/miscellaneous_detail_screen.dart';
 import 'features/wallet/screens/expense_approvals_screen.dart';
 import 'features/wallet/screens/voucher_approvals_screen.dart';
 import 'features/wallet/screens/wallet_management_screen.dart';
+import 'features/maintenance/screens/vendors_screen.dart';
+import 'features/maintenance/screens/work_orders_screen.dart';
+import 'features/maintenance/screens/purchase_orders_screen.dart';
+import 'features/maintenance/screens/create_purchase_order_screen.dart';
+
 import 'features/auth/auth_service.dart';
 import 'core/constants/app_theme.dart';
 import 'core/constants/app_constants.dart';
@@ -345,6 +350,43 @@ class PortOperationsApp extends ConsumerWidget {
             final operationId = int.parse(state.pathParameters['operationId']!);
             return LabourCostListScreen(operationId: operationId);
           },
+        ),
+        
+        // === MAINTENANCE SYSTEM ROUTES ===
+        GoRoute(
+          path: '/maintenance/work-orders',
+          name: 'maintenance-work-orders',
+          builder: (context, state) => const WorkOrdersScreen(),
+        ),
+        GoRoute(
+          path: '/maintenance/work-orders/new',
+          name: 'maintenance-work-orders-new',
+          builder: (context, state) => const _PlaceholderScreen(title: 'Create Work Order'),
+        ),
+        GoRoute(
+          path: '/maintenance/purchase-orders',
+          name: 'maintenance-purchase-orders',
+          builder: (context, state) => const PurchaseOrdersScreen(),
+        ),
+        GoRoute(
+          path: '/maintenance/purchase-orders/new',
+          name: 'maintenance-purchase-orders-new',
+          builder: (context, state) => const CreatePurchaseOrderScreen(),
+        ),
+        GoRoute(
+          path: '/maintenance/vendors',
+          name: 'maintenance-vendors',
+          builder: (context, state) => const VendorsScreen(),
+        ),
+        GoRoute(
+          path: '/maintenance/vendors/new',
+          name: 'maintenance-vendors-new',
+          builder: (context, state) => const _PlaceholderScreen(title: 'Add Vendor'),
+        ),
+        GoRoute(
+          path: '/vehicles',
+          name: 'vehicles',
+          builder: (context, state) => const _PlaceholderScreen(title: 'Vehicle Management'),
         ),
       ],
       errorBuilder: (context, state) => Scaffold(

@@ -46,6 +46,8 @@ class User {
   bool get isManager => role == 'manager';
   bool get isSupervisor => role == 'supervisor';
   bool get isAccountant => role == 'accountant';
+  bool get isOfficeBoy => role == 'office_boy';
+  bool get isOffice => role == 'office';
 
   // Permission helper methods
   bool get canCreateOperations => isAdmin || isManager;
@@ -60,6 +62,15 @@ class User {
   bool get canSubmitExpenses => isSupervisor;
   bool get canManageLabourCosts => isAdmin || isManager || isSupervisor || isAccountant;
   bool get canEditLabourCosts => isAdmin || isManager || isAccountant;
+  
+  // Maintenance system permissions
+  bool get canCreateWorkOrders => isAdmin || isManager || isSupervisor;
+  bool get canManageWorkOrders => isAdmin || isManager;
+  bool get canCreatePurchaseOrders => isAdmin || isManager || isSupervisor;
+  bool get canManagePurchaseOrders => isAdmin || isManager;
+  bool get canManageVendors => isAdmin || isManager;
+  bool get canEnterBillNumbers => isAdmin || isManager || role == 'office_boy';
+  bool get canItemizePurchaseOrders => isAdmin || isManager || isOfficeBoy || isOffice;
   bool get canAccessInvoiceTracking => isAdmin || isManager || isAccountant;
   bool get canAccessCostDetails => isAdmin || isManager;
 
@@ -73,6 +84,10 @@ class User {
         return 'Supervisor';
       case 'accountant':
         return 'Accountant';
+      case 'office_boy':
+        return 'Office Boy';
+      case 'office':
+        return 'Office';
       default:
         return role;
     }

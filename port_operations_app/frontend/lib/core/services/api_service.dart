@@ -36,9 +36,14 @@ class ApiService {
     // Request interceptor to add auth token
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final token = await _storage.read(key: AppConstants.accessTokenKey);
-        if (token != null) {
-          options.headers['Authorization'] = 'Bearer $token';
+        // Do not attach Authorization for login or refresh endpoints
+        final path = options.path;
+        final isAuthPath = path.contains('/auth/login/') || path.contains('/auth/token/refresh/');
+        if (!isAuthPath) {
+          final token = await _storage.read(key: AppConstants.accessTokenKey);
+          if (token != null) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
         }
         _logger.d('Request: ${options.method} ${options.path}');
         handler.next(options);
@@ -53,6 +58,7 @@ class ApiService {
         // Handle token refresh on 401, but not for refresh endpoint itself
         if (error.response?.statusCode == 401 && 
             !error.requestOptions.path.contains('/auth/token/refresh/') &&
+            !error.requestOptions.path.contains('/auth/login/') &&
             !_isRefreshing) {
           
           _isRefreshing = true;
@@ -74,7 +80,8 @@ class ApiService {
               _logger.e('Retry failed: $e');
             }
           } else {
-            // If refresh failed, clear tokens and force logout
+            // If refresh failed, clear tokens (but don't auto-logout here)
+            _logger.w('Token refresh failed, clearing tokens');
             await clearTokens();
           }
         }
@@ -88,11 +95,11 @@ class ApiService {
     try {
       final refreshToken = await _storage.read(key: AppConstants.refreshTokenKey);
       if (refreshToken == null) {
-        _logger.w('No refresh token available');
+        _logger.w('No refresh token available for refresh');
         return false;
       }
 
-      _logger.d('Attempting token refresh...');
+      _logger.d('Attempting token refresh with token length: ${refreshToken.length}');
       final response = await _dio.post(
         '/auth/token/refresh/',
         data: {'refresh': refreshToken},
@@ -103,12 +110,16 @@ class ApiService {
         final newAccessToken = response.data['access'];
         final newRefreshToken = response.data['refresh']; // JWT rotates refresh tokens
         
+        _logger.d('Token refresh successful - New access token length: ${newAccessToken?.toString().length ?? 0}');
+        
         await _storage.write(key: AppConstants.accessTokenKey, value: newAccessToken);
         if (newRefreshToken != null) {
           await _storage.write(key: AppConstants.refreshTokenKey, value: newRefreshToken);
+          _logger.d('New refresh token stored');
+        } else {
+          _logger.w('No new refresh token provided');
         }
         
-        _logger.d('Token refresh successful');
         return true;
       }
     } catch (e) {
@@ -134,6 +145,8 @@ class ApiService {
   Future<String?> getAccessToken() async {
     return await _storage.read(key: AppConstants.accessTokenKey);
   }
+
+
 
   // Generic HTTP methods
   Future<Response<T>> get<T>(

@@ -712,3 +712,317 @@ class RevenueStream(models.Model):
     
     class Meta:
         ordering = ['-date']
+
+
+# === MAINTENANCE SYSTEM MODELS ===
+
+class Vendor(models.Model):
+    """
+    Master data for vendors/suppliers used in PO and WO
+    """
+    name = models.CharField(max_length=100, unique=True)
+    contact_person = models.CharField(max_length=100, blank=True, null=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        ordering = ['name']
+
+
+def maintenance_audio_upload_path(instance, filename):
+    """Upload path for maintenance audio files"""
+    model_name = instance.__class__.__name__.lower()
+    return f'maintenance_audio/{model_name}/{instance.id}/{filename}'
+
+
+class WorkOrder(models.Model):
+    """
+    Work Order model for maintenance job tracking
+    """
+    STATUS_CHOICES = [
+        ('open', 'Open'),
+        ('closed', 'Closed'),
+    ]
+    
+    CATEGORY_CHOICES = [
+        ('engine', 'Engine'),
+        ('hydraulic', 'Hydraulic'),
+        ('bushing', 'Bushing'),
+        ('electrical', 'Electrical'),
+        ('other', 'Other'),
+    ]
+    
+    wo_id = models.CharField(max_length=20, unique=True, editable=False)  # Auto-generated
+    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, related_name='work_orders')
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='work_orders', blank=True, null=True)
+    vehicle_other = models.CharField(max_length=100, blank=True, null=True, help_text="For non-fleet vehicles")
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    remark_text = models.TextField(blank=True, null=True)
+    remark_audio = models.FileField(upload_to=maintenance_audio_upload_path, blank=True, null=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='open')
+    linked_po = models.ForeignKey('PurchaseOrder', on_delete=models.SET_NULL, blank=True, null=True, related_name='linked_work_orders')
+    bill_no = models.CharField(max_length=50, blank=True, null=True)
+    
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_work_orders')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def save(self, *args, **kwargs):
+        if not self.wo_id:
+            # Generate WO ID: WO-YYYYMMDD-XXXX
+            today = timezone.now().date()
+            prefix = f"WO-{today.strftime('%Y%m%d')}"
+            
+            # Get the last WO for today
+            last_wo = WorkOrder.objects.filter(
+                wo_id__startswith=prefix
+            ).order_by('-wo_id').first()
+            
+            if last_wo:
+                # Extract sequence number and increment
+                last_seq = int(last_wo.wo_id.split('-')[-1])
+                new_seq = last_seq + 1
+            else:
+                new_seq = 1
+            
+            self.wo_id = f"{prefix}-{new_seq:04d}"
+        
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        vehicle_display = self.vehicle.vehicle_number if self.vehicle else self.vehicle_other
+        return f"{self.wo_id} - {vehicle_display} ({self.vendor.name})"
+    
+    class Meta:
+        ordering = ['-created_at']
+
+
+class PurchaseOrder(models.Model):
+    """
+    Purchase Order model for maintenance procurement tracking
+    """
+    STATUS_CHOICES = [
+        ('open', 'Open'),
+        ('closed', 'Closed'),
+    ]
+    
+    CATEGORY_CHOICES = [
+        ('engine', 'Engine'),
+        ('hydraulic', 'Hydraulic'),
+        ('bushing', 'Bushing'),
+        ('electrical', 'Electrical'),
+        ('other', 'Other'),
+    ]
+    
+    po_id = models.CharField(max_length=20, unique=True, editable=False)  # Auto-generated
+    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, related_name='purchase_orders')
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='purchase_orders', blank=True, null=True)
+    vehicle_other = models.CharField(max_length=100, blank=True, null=True, help_text="For non-fleet vehicles")
+    for_stock = models.BooleanField(default=False, help_text="Items for stock instead of specific vehicle")
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    remark_text = models.TextField(blank=True, null=True)
+    remark_audio = models.FileField(upload_to=maintenance_audio_upload_path, blank=True, null=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='open')
+    linked_wo = models.ForeignKey(WorkOrder, on_delete=models.SET_NULL, blank=True, null=True, related_name='linked_purchase_orders')
+    bill_no = models.CharField(max_length=50, blank=True, null=True)
+    
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_purchase_orders')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def save(self, *args, **kwargs):
+        if not self.po_id:
+            # Generate PO ID: PO-YYYYMMDD-XXXX
+            today = timezone.now().date()
+            prefix = f"PO-{today.strftime('%Y%m%d')}"
+            
+            # Get the last PO for today
+            last_po = PurchaseOrder.objects.filter(
+                po_id__startswith=prefix
+            ).order_by('-po_id').first()
+            
+            if last_po:
+                # Extract sequence number and increment
+                last_seq = int(last_po.po_id.split('-')[-1])
+                new_seq = last_seq + 1
+            else:
+                new_seq = 1
+            
+            self.po_id = f"{prefix}-{new_seq:04d}"
+        
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        if self.for_stock:
+            target = "For Stock"
+        else:
+            target = self.vehicle.vehicle_number if self.vehicle else self.vehicle_other
+        return f"{self.po_id} - {target} ({self.vendor.name})"
+    
+    def check_duplicate_po_warning(self):
+        """
+        Check if similar PO exists in last 24 hours for same vendor/vehicle
+        Returns warning message if duplicate found
+        """
+        if not self.vendor:
+            return None
+            
+        # Check for POs created in last 24 hours
+        last_24_hours = timezone.now() - timezone.timedelta(hours=24)
+        
+        # Build query conditions
+        query_conditions = models.Q(
+            vendor=self.vendor,
+            created_at__gte=last_24_hours
+        )
+        
+        # Add vehicle condition if applicable
+        if self.vehicle:
+            query_conditions &= models.Q(vehicle=self.vehicle)
+        elif self.vehicle_other:
+            query_conditions &= models.Q(vehicle_other=self.vehicle_other)
+        elif self.for_stock:
+            query_conditions &= models.Q(for_stock=True)
+        
+        # Exclude current PO if updating
+        existing_pos = PurchaseOrder.objects.filter(query_conditions)
+        if self.pk:
+            existing_pos = existing_pos.exclude(pk=self.pk)
+        
+        if existing_pos.exists():
+            return "PO already exists for this vehicle/vendor today. Continue?"
+        
+        return None
+    
+    class Meta:
+        ordering = ['-created_at']
+
+
+class POItem(models.Model):
+    """
+    Itemized details for Purchase Orders (Phase 2 - Office role)
+    """
+    purchase_order = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE, related_name='items')
+    item_name = models.CharField(max_length=200)
+    quantity = models.DecimalField(max_digits=10, decimal_places=3, validators=[MinValueValidator(0)])
+    rate = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
+    amount = models.DecimalField(max_digits=12, decimal_places=2, editable=False)
+    assigned_vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, blank=True, null=True)
+    assigned_vehicle_other = models.CharField(max_length=100, blank=True, null=True)
+    for_stock = models.BooleanField(default=False)
+    
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def save(self, *args, **kwargs):
+        # Auto-calculate amount
+        if self.quantity and self.rate:
+            quantity_decimal = Decimal(str(self.quantity)) if not isinstance(self.quantity, Decimal) else self.quantity
+            rate_decimal = Decimal(str(self.rate)) if not isinstance(self.rate, Decimal) else self.rate
+            self.amount = quantity_decimal * rate_decimal
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return f"{self.item_name} - {self.purchase_order.po_id}"
+    
+    class Meta:
+        ordering = ['item_name']
+
+
+class Stock(models.Model):
+    """
+    Stock management for items marked as "For Stock" in POs
+    """
+    item_name = models.CharField(max_length=200)
+    quantity_in_hand = models.DecimalField(max_digits=10, decimal_places=3, validators=[MinValueValidator(0)])
+    source_po = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE, related_name='stock_items')
+    source_po_item = models.ForeignKey(POItem, on_delete=models.CASCADE, blank=True, null=True)
+    last_issue_date = models.DateTimeField(blank=True, null=True)
+    unit = models.CharField(max_length=20, default='nos')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.item_name} - {self.quantity_in_hand} {self.unit}"
+    
+    class Meta:
+        ordering = ['item_name']
+
+
+class IssueSlip(models.Model):
+    """
+    Issue slips for items issued from stock to vehicles
+    """
+    slip_id = models.CharField(max_length=20, unique=True, editable=False)  # Auto-generated
+    stock_item = models.ForeignKey(Stock, on_delete=models.CASCADE, related_name='issue_slips')
+    issued_quantity = models.DecimalField(max_digits=10, decimal_places=3, validators=[MinValueValidator(0)])
+    assigned_vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='issued_items')
+    assigned_vehicle_other = models.CharField(max_length=100, blank=True, null=True)
+    remarks = models.TextField(blank=True, null=True)
+    
+    issued_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='issued_stock')
+    issued_at = models.DateTimeField(auto_now_add=True)
+    
+    def save(self, *args, **kwargs):
+        if not self.slip_id:
+            # Generate Issue Slip ID: IS-YYYYMMDD-XXXX
+            today = timezone.now().date()
+            prefix = f"IS-{today.strftime('%Y%m%d')}"
+            
+            # Get the last Issue Slip for today
+            last_slip = IssueSlip.objects.filter(
+                slip_id__startswith=prefix
+            ).order_by('-slip_id').first()
+            
+            if last_slip:
+                # Extract sequence number and increment
+                last_seq = int(last_slip.slip_id.split('-')[-1])
+                new_seq = last_seq + 1
+            else:
+                new_seq = 1
+            
+            self.slip_id = f"{prefix}-{new_seq:04d}"
+        
+        # Update stock quantity and last issue date
+        if self.pk is None:  # Only on creation
+            self.stock_item.quantity_in_hand -= self.issued_quantity
+            self.stock_item.last_issue_date = timezone.now()
+            self.stock_item.save()
+        
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        vehicle = self.assigned_vehicle.vehicle_number if self.assigned_vehicle else self.assigned_vehicle_other
+        return f"{self.slip_id} - {self.stock_item.item_name} to {vehicle}"
+    
+    class Meta:
+        ordering = ['-issued_at']
+
+
+class WorkOrderPurchaseLink(models.Model):
+    """
+    Through model to link WorkOrders and PurchaseOrders (many-to-many)
+    """
+    work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE, related_name='po_links')
+    purchase_order = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE, related_name='wo_links')
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('work_order', 'purchase_order')
+        constraints = [
+            models.UniqueConstraint(fields=['purchase_order'], name='unique_link_per_purchase_order')
+        ]
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.work_order.wo_id} ↔ {self.purchase_order.po_id}"

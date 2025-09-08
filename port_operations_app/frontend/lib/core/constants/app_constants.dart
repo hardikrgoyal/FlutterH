@@ -10,11 +10,11 @@ class AppConstants {
   // For Android Emulator: use 10.0.2.2
   // For iOS Simulator: use 127.0.0.1 or localhost  
   // For Physical Device: use your computer's IP address
-  static const String devBaseUrl = 'http://10.0.2.2:8001/api';
+  static const String devBaseUrl = 'http://10.0.2.2:8000/api';
   
   // Alternative base URLs for different environments
-  static const String iOSSimulatorBaseUrl = 'http://127.0.0.1:8001/api';
-  static const String localBaseUrl = 'http://localhost:8001/api';
+  static const String iOSSimulatorBaseUrl = 'http://127.0.0.1:8000/api';
+  static const String localBaseUrl = 'http://localhost:8000/api';
   
   // For physical device, uncomment and replace with your computer's IP
   // static const String physicalDeviceBaseUrl = 'http://192.168.1.xxx:8001/api';

@@ -118,20 +118,30 @@ def user_permissions(request):
             'create_operations', 'manage_operations', 'enter_expenses',
             'field_data_entry', 'view_wallet', 'submit_vouchers',
             'approve_financial', 'topup_wallets', 'log_tally', 'enter_revenue',
-            'manage_vehicle_documents', 'view_vehicle_documents'
+            'manage_vehicle_documents', 'view_vehicle_documents',
+            'create_work_orders', 'manage_work_orders', 'create_purchase_orders',
+            'manage_purchase_orders', 'manage_vendors', 'enter_bill_numbers',
+            'manage_stock', 'create_issue_slips'
         ],
         'manager': [
             'create_operations', 'manage_operations', 'approve_supervisor_entries',
             'enter_expenses', 'configure_rates', 'enter_revenue',
-            'manage_vehicle_documents', 'view_vehicle_documents'
+            'manage_vehicle_documents', 'view_vehicle_documents',
+            'create_work_orders', 'manage_work_orders', 'create_purchase_orders',
+            'manage_purchase_orders', 'manage_vendors', 'enter_bill_numbers',
+            'manage_stock', 'create_issue_slips'
         ],
         'supervisor': [
             'field_data_entry', 'view_wallet', 'submit_vouchers',
-            'start_equipment', 'end_equipment', 'view_vehicle_documents'
+            'start_equipment', 'end_equipment', 'view_vehicle_documents',
+            'create_work_orders', 'create_purchase_orders', 'view_stock'
         ],
         'accountant': [
             'approve_financial', 'topup_wallets', 'log_tally', 'enter_revenue',
             'manage_vehicle_documents', 'view_vehicle_documents'
+        ],
+        'office_boy': [
+            'enter_bill_numbers', 'itemize_purchase_orders'
         ]
     }
     

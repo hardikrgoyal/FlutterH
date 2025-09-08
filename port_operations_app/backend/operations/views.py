@@ -10,19 +10,28 @@ from .models import (
     CargoOperation, RateMaster, Equipment, EquipmentRateMaster, TransportDetail, 
     LabourCost, MiscellaneousCost, RevenueStream,
     VehicleType, WorkType, PartyMaster, ContractorMaster, ServiceTypeMaster, UnitTypeMaster,
-    Vehicle, VehicleDocument
+    Vehicle, VehicleDocument,
+    # Maintenance system models
+    Vendor, WorkOrder, PurchaseOrder, POItem, Stock, IssueSlip, WorkOrderPurchaseLink
 )
 from .serializers import (
     CargoOperationSerializer, RateMasterSerializer, EquipmentSerializer, EquipmentRateMasterSerializer,
     TransportDetailSerializer, LabourCostSerializer, MiscellaneousCostSerializer,
     RevenueStreamSerializer, VehicleTypeSerializer, WorkTypeSerializer, 
     PartyMasterSerializer, ContractorMasterSerializer, ServiceTypeMasterSerializer, UnitTypeMasterSerializer,
-    VehicleSerializer, VehicleDocumentSerializer, VehicleDocumentHistorySerializer
+    VehicleSerializer, VehicleDocumentSerializer, VehicleDocumentHistorySerializer,
+    # Maintenance system serializers
+    VendorSerializer, WorkOrderSerializer, PurchaseOrderSerializer, POItemSerializer,
+    StockSerializer, IssueSlipSerializer, WorkOrderPurchaseLinkSerializer
 )
 from authentication.permissions import (
     CanCreateOperations, CanManageEquipment, IsManagerOrAdmin,
     IsSupervisorOrAbove, IsAccountantOrAdmin, CanAccessLabourCosts, CanManageRevenue,
-    CanManageVehicles, CanViewVehicles
+    CanManageVehicles, CanViewVehicles,
+    # Maintenance system permissions
+    CanCreateWorkOrders, CanManageWorkOrders, CanCreatePurchaseOrders, CanManagePurchaseOrders,
+    CanManageVendors, CanEnterBillNumbers, CanManageStock, CanViewStock, CanCreateIssueSlips,
+    CanItemizePurchaseOrders
 )
 
 class CargoOperationViewSet(viewsets.ModelViewSet):
@@ -830,3 +839,317 @@ class DashboardView(generics.GenericAPIView):
             })
         
         return Response(data)
+
+
+# === MAINTENANCE SYSTEM VIEWSETS ===
+
+class VendorViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing vendors
+    """
+    queryset = Vendor.objects.filter(is_active=True)
+    serializer_class = VendorSerializer
+    permission_classes = [CanManageVendors]
+    pagination_class = None  # Disable pagination for master data
+    
+    def get_permissions(self):
+        """
+        Only managers and admins can create/update/delete vendors
+        """
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes = [CanManageVendors]
+        else:
+            permission_classes = [IsSupervisorOrAbove]
+        return [permission() for permission in permission_classes]
+
+
+class WorkOrderViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing work orders
+    """
+    queryset = WorkOrder.objects.all()
+    serializer_class = WorkOrderSerializer
+    
+    def get_permissions(self):
+        """
+        Create: Admin, Manager, Supervisor
+        Full management: Admin, Manager only
+        """
+        if self.action in ['create']:
+            permission_classes = [CanCreateWorkOrders]
+        elif self.action in ['update', 'partial_update', 'destroy', 'link_po', 'unlink_po']:
+            permission_classes = [CanManageWorkOrders]
+        else:
+            permission_classes = [IsSupervisorOrAbove]
+        return [permission() for permission in permission_classes]
+    
+    @action(detail=True, methods=['patch'], permission_classes=[CanEnterBillNumbers])
+    def update_bill_number(self, request, pk=None):
+        """
+        Special endpoint for updating bill number by office staff
+        """
+        work_order = self.get_object()
+        bill_no = request.data.get('bill_no')
+        
+        if not bill_no:
+            return Response({'error': 'Bill number is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check for duplicate bill numbers
+        if WorkOrder.objects.filter(bill_no=bill_no).exclude(pk=work_order.pk).exists():
+            return Response({'error': 'Bill number already exists'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        work_order.bill_no = bill_no
+        work_order.save()
+        
+        return Response({'message': 'Bill number updated successfully'})
+    
+    @action(detail=True, methods=['patch'], permission_classes=[CanManageWorkOrders])
+    def close_work_order(self, request, pk=None):
+        """
+        Close a work order
+        """
+        work_order = self.get_object()
+        work_order.status = 'closed'
+        work_order.save()
+        
+        return Response({'message': 'Work order closed successfully'})
+
+    @action(detail=True, methods=['post'])
+    def link_po(self, request, pk=None):
+        work_order = self.get_object()
+        po_id = request.data.get('purchase_order') or request.data.get('po_id') or request.data.get('po')
+        if not po_id:
+            return Response({'error': 'purchase_order is required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            purchase_order = PurchaseOrder.objects.get(pk=po_id)
+        except PurchaseOrder.DoesNotExist:
+            return Response({'error': 'Purchase order not found'}, status=status.HTTP_404_NOT_FOUND)
+        if work_order.status == 'closed':
+            return Response({'error': 'Cannot link a closed work order'}, status=status.HTTP_400_BAD_REQUEST)
+        # Ensure the PO is not already linked to another WO
+        if WorkOrderPurchaseLink.objects.filter(purchase_order=purchase_order).exists():
+            return Response({'error': 'This PO is already linked to a work order'}, status=status.HTTP_400_BAD_REQUEST)
+        link, created = WorkOrderPurchaseLink.objects.get_or_create(
+            work_order=work_order,
+            purchase_order=purchase_order,
+            defaults={'created_by': request.user}
+        )
+        serializer = WorkOrderPurchaseLinkSerializer(link)
+        return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'])
+    def unlink_po(self, request, pk=None):
+        work_order = self.get_object()
+        po_id = request.data.get('purchase_order')
+        if not po_id:
+            return Response({'error': 'purchase_order is required'}, status=status.HTTP_400_BAD_REQUEST)
+        WorkOrderPurchaseLink.objects.filter(work_order=work_order, purchase_order_id=po_id).delete()
+        return Response({'message': 'Unlinked successfully'})
+
+
+class PurchaseOrderViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing purchase orders
+    """
+    queryset = PurchaseOrder.objects.all()
+    serializer_class = PurchaseOrderSerializer
+    
+    def get_permissions(self):
+        """
+        Create: Admin, Manager, Supervisor
+        Full management: Admin, Manager only
+        """
+        if self.action in ['create']:
+            permission_classes = [CanCreatePurchaseOrders]
+        elif self.action in ['update', 'partial_update', 'destroy', 'link_wo', 'unlink_wo']:
+            permission_classes = [CanManagePurchaseOrders]
+        else:
+            permission_classes = [IsSupervisorOrAbove]
+        return [permission() for permission in permission_classes]
+    
+    @action(detail=False, methods=['get'])
+    def duplicate_check(self, request):
+        """
+        Check for duplicate PO before creation
+        """
+        vendor_id = request.query_params.get('vendor_id')
+        vehicle_id = request.query_params.get('vehicle_id')
+        vehicle_other = request.query_params.get('vehicle_other')
+        for_stock = request.query_params.get('for_stock') == 'true'
+        
+        if not vendor_id:
+            return Response({'warning': None})
+        
+        # Check for POs created in last 24 hours
+        last_24_hours = timezone.now() - timedelta(hours=24)
+        query_conditions = Q(vendor_id=vendor_id, created_at__gte=last_24_hours)
+        
+        if vehicle_id:
+            query_conditions &= Q(vehicle_id=vehicle_id)
+        elif vehicle_other:
+            query_conditions &= Q(vehicle_other=vehicle_other)
+        elif for_stock:
+            query_conditions &= Q(for_stock=True)
+        
+        existing_pos = PurchaseOrder.objects.filter(query_conditions)
+        
+        if existing_pos.exists():
+            return Response({
+                'warning': 'PO already exists for this vehicle/vendor today. Continue?',
+                'existing_pos': [po.po_id for po in existing_pos[:3]]
+            })
+        
+        return Response({'warning': None})
+    
+    @action(detail=True, methods=['patch'], permission_classes=[CanEnterBillNumbers])
+    def update_bill_number(self, request, pk=None):
+        """
+        Special endpoint for updating bill number by office staff
+        """
+        purchase_order = self.get_object()
+        bill_no = request.data.get('bill_no')
+        
+        if not bill_no:
+            return Response({'error': 'Bill number is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check for duplicate bill numbers
+        if PurchaseOrder.objects.filter(bill_no=bill_no).exclude(pk=purchase_order.pk).exists():
+            return Response({'error': 'Bill number already exists'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        purchase_order.bill_no = bill_no
+        purchase_order.save()
+        
+        return Response({'message': 'Bill number updated successfully'})
+    
+    @action(detail=True, methods=['patch'], permission_classes=[CanManagePurchaseOrders])
+    def close_purchase_order(self, request, pk=None):
+        """
+        Close a purchase order
+        """
+        purchase_order = self.get_object()
+        purchase_order.status = 'closed'
+        purchase_order.save()
+        
+        return Response({'message': 'Purchase order closed successfully'})
+
+    @action(detail=True, methods=['post'])
+    def link_wo(self, request, pk=None):
+        purchase_order = self.get_object()
+        wo_id = request.data.get('work_order') or request.data.get('wo_id') or request.data.get('wo')
+        if not wo_id:
+            return Response({'error': 'work_order is required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            work_order = WorkOrder.objects.get(pk=wo_id)
+        except WorkOrder.DoesNotExist:
+            return Response({'error': 'Work order not found'}, status=status.HTTP_404_NOT_FOUND)
+        if work_order.status == 'closed':
+            return Response({'error': 'Cannot link a closed work order'}, status=status.HTTP_400_BAD_REQUEST)
+        # Ensure the PO is not already linked to another WO
+        if WorkOrderPurchaseLink.objects.filter(purchase_order=purchase_order).exists():
+            return Response({'error': 'This PO is already linked to a work order'}, status=status.HTTP_400_BAD_REQUEST)
+        link, created = WorkOrderPurchaseLink.objects.get_or_create(
+            work_order=work_order,
+            purchase_order=purchase_order,
+            defaults={'created_by': request.user}
+        )
+        serializer = WorkOrderPurchaseLinkSerializer(link)
+        return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'])
+    def unlink_wo(self, request, pk=None):
+        purchase_order = self.get_object()
+        wo_id = request.data.get('work_order')
+        if not wo_id:
+            return Response({'error': 'work_order is required'}, status=status.HTTP_400_BAD_REQUEST)
+        WorkOrderPurchaseLink.objects.filter(work_order_id=wo_id, purchase_order=purchase_order).delete()
+        return Response({'message': 'Unlinked successfully'})
+
+
+class POItemViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing PO items (itemization)
+    """
+    queryset = POItem.objects.all()
+    serializer_class = POItemSerializer
+    permission_classes = [CanItemizePurchaseOrders]
+    
+    def get_queryset(self):
+        """
+        Filter items by purchase order if specified
+        """
+        queryset = super().get_queryset()
+        po_id = self.request.query_params.get('purchase_order', None)
+        if po_id:
+            queryset = queryset.filter(purchase_order_id=po_id)
+        return queryset
+    
+    def perform_create(self, serializer):
+        """
+        Set the created_by field when creating POItem
+        """
+        serializer.save(created_by=self.request.user)
+
+
+class StockViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing stock
+    """
+    queryset = Stock.objects.all()
+    serializer_class = StockSerializer
+    
+    def get_permissions(self):
+        """
+        View: Admin, Manager, Supervisor
+        Manage: Admin, Manager only
+        """
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes = [CanManageStock]
+        else:
+            permission_classes = [CanViewStock]
+        return [permission() for permission in permission_classes]
+    
+    @action(detail=False, methods=['get'])
+    def low_stock(self, request):
+        """
+        Get items with low stock (less than 5 units)
+        """
+        low_stock_items = Stock.objects.filter(quantity_in_hand__lt=5)
+        serializer = self.get_serializer(low_stock_items, many=True)
+        return Response(serializer.data)
+
+
+class IssueSlipViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing issue slips
+    """
+    queryset = IssueSlip.objects.all()
+    serializer_class = IssueSlipSerializer
+    permission_classes = [CanCreateIssueSlips]
+    
+    def get_queryset(self):
+        """
+        Filter by vehicle or stock item if specified
+        """
+        queryset = super().get_queryset()
+        vehicle_id = self.request.query_params.get('vehicle', None)
+        stock_item_id = self.request.query_params.get('stock_item', None)
+        
+        if vehicle_id:
+            queryset = queryset.filter(assigned_vehicle_id=vehicle_id)
+        if stock_item_id:
+            queryset = queryset.filter(stock_item_id=stock_item_id)
+            
+        return queryset
+    
+    @action(detail=False, methods=['get'])
+    def by_vehicle(self, request):
+        """
+        Get issue slips grouped by vehicle
+        """
+        vehicle_id = request.query_params.get('vehicle_id')
+        if not vehicle_id:
+            return Response({'error': 'vehicle_id parameter required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        issue_slips = IssueSlip.objects.filter(assigned_vehicle_id=vehicle_id)
+        serializer = self.get_serializer(issue_slips, many=True)
+        return Response(serializer.data)

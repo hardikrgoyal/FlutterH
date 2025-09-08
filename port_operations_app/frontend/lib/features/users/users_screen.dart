@@ -14,8 +14,29 @@ class UsersScreen extends ConsumerStatefulWidget {
 }
 
 class _UsersScreenState extends ConsumerState<UsersScreen> {
-  final List<String> _roles = ['all', 'admin', 'manager', 'supervisor', 'accountant'];
+  final List<String> _roles = ['all', 'admin', 'manager', 'supervisor', 'accountant', 'office_boy', 'office'];
   final TextEditingController _searchController = TextEditingController();
+
+  String _getRoleDisplayName(String role) {
+    switch (role) {
+      case 'all':
+        return 'All Roles';
+      case 'admin':
+        return 'Admin';
+      case 'manager':
+        return 'Manager';
+      case 'supervisor':
+        return 'Supervisor';
+      case 'accountant':
+        return 'Accountant';
+      case 'office_boy':
+        return 'Office Boy';
+      case 'office':
+        return 'Office';
+      default:
+        return role.toUpperCase();
+    }
+  }
 
   @override
   void initState() {
@@ -148,7 +169,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                 final isSelected = state.selectedRole == role;
                 
                 return FilterChip(
-                  label: Text(role.toUpperCase()),
+                  label: Text(_getRoleDisplayName(role)),
                   selected: isSelected,
                   onSelected: (selected) {
                     ref.read(userManagementProvider.notifier).updateRoleFilter(role);
@@ -569,7 +590,26 @@ class _AddUserDialogState extends State<AddUserDialog> {
   bool _isActive = true;
   bool _isLoading = false;
 
-  final List<String> _availableRoles = ['admin', 'manager', 'supervisor', 'accountant'];
+  final List<String> _availableRoles = ['admin', 'manager', 'supervisor', 'accountant', 'office_boy', 'office'];
+
+  String _getRoleDisplayName(String role) {
+    switch (role) {
+      case 'admin':
+        return 'Admin';
+      case 'manager':
+        return 'Manager';
+      case 'supervisor':
+        return 'Supervisor';
+      case 'accountant':
+        return 'Accountant';
+      case 'office_boy':
+        return 'Office Boy';
+      case 'office':
+        return 'Office';
+      default:
+        return role.toUpperCase();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -678,7 +718,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
                   items: _availableRoles.map((role) {
                     return DropdownMenuItem(
                       value: role,
-                      child: Text(role.toUpperCase()),
+                      child: Text(_getRoleDisplayName(role)),
                     );
                   }).toList(),
                   onChanged: (value) {
@@ -816,7 +856,26 @@ class _EditUserDialogState extends State<EditUserDialog> {
   late bool _isActive;
   bool _isLoading = false;
 
-  final List<String> _availableRoles = ['admin', 'manager', 'supervisor', 'accountant'];
+  final List<String> _availableRoles = ['admin', 'manager', 'supervisor', 'accountant', 'office_boy', 'office'];
+
+  String _getRoleDisplayName(String role) {
+    switch (role) {
+      case 'admin':
+        return 'Admin';
+      case 'manager':
+        return 'Manager';
+      case 'supervisor':
+        return 'Supervisor';
+      case 'accountant':
+        return 'Accountant';
+      case 'office_boy':
+        return 'Office Boy';
+      case 'office':
+        return 'Office';
+      default:
+        return role.toUpperCase();
+    }
+  }
 
   @override
   void initState() {
@@ -920,7 +979,7 @@ class _EditUserDialogState extends State<EditUserDialog> {
                   items: _availableRoles.map((role) {
                     return DropdownMenuItem(
                       value: role,
-                      child: Text(role.toUpperCase()),
+                      child: Text(_getRoleDisplayName(role)),
                     );
                   }).toList(),
                   onChanged: (value) {

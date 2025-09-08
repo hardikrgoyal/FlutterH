@@ -126,3 +126,93 @@ class CanViewVehicles(BaseRolePermission):
     All authenticated users can view vehicles
     """
     allowed_roles = ['supervisor', 'manager', 'admin', 'accountant'] 
+
+
+# === MAINTENANCE SYSTEM PERMISSIONS ===
+
+class CanCreateWorkOrders(BaseRolePermission):
+    """
+    Permission for creating work orders
+    Admin, Manager, Supervisor can create
+    """
+    allowed_roles = ['admin', 'manager', 'supervisor']
+
+
+class CanManageWorkOrders(BaseRolePermission):
+    """
+    Permission for full work order management
+    Admin and Manager only
+    """
+    allowed_roles = ['admin', 'manager']
+
+
+class CanCreatePurchaseOrders(BaseRolePermission):
+    """
+    Permission for creating purchase orders
+    Admin, Manager, Supervisor can create
+    """
+    allowed_roles = ['admin', 'manager', 'supervisor']
+
+
+class CanManagePurchaseOrders(BaseRolePermission):
+    """
+    Permission for full purchase order management
+    Admin and Manager only
+    """
+    allowed_roles = ['admin', 'manager']
+
+
+class CanManageVendors(BaseRolePermission):
+    """
+    Permission for managing vendors
+    Admin and Manager only
+    """
+    allowed_roles = ['admin', 'manager']
+
+
+class CanEnterBillNumbers(BaseRolePermission):
+    """
+    Permission for entering bill numbers
+    Admin, Manager, Office Boy can enter
+    """
+    allowed_roles = ['admin', 'manager', 'office_boy']
+
+
+class CanItemizePurchaseOrders(BaseRolePermission):
+    """
+    Permission for itemizing purchase orders
+    Office Boy role (future implementation)
+    """
+    allowed_roles = ['office_boy']
+
+
+class CanManageStock(BaseRolePermission):
+    """
+    Permission for stock management
+    Admin and Manager only
+    """
+    allowed_roles = ['admin', 'manager']
+
+
+class CanViewStock(BaseRolePermission):
+    """
+    Permission for viewing stock
+    Admin, Manager, Supervisor can view
+    """
+    allowed_roles = ['admin', 'manager', 'supervisor']
+
+
+class CanCreateIssueSlips(BaseRolePermission):
+    """
+    Permission for creating issue slips
+    Admin and Manager only
+    """
+    allowed_roles = ['admin', 'manager']
+
+
+class CanItemizePurchaseOrders(BaseRolePermission):
+    """
+    Permission for itemizing purchase orders
+    Admin, Manager, Office, and Office Boy can itemize
+    """
+    allowed_roles = ['admin', 'manager', 'office', 'office_boy'] 
