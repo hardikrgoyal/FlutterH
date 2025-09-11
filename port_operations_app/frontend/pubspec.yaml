@@ -61,6 +61,7 @@ dependencies:
   # Audio Recording & Playback
   audio_waveforms: ^1.0.5
   permission_handler: ^11.3.1
+  flutter_sound: ^9.2.13
   
   # Date & Time
   intl: ^0.19.0
