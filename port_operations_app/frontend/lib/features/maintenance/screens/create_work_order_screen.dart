@@ -428,13 +428,16 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
               ),
             ] else ...[
               AudioRecordingWidget(
+                initialAudioPath: _audioFile?.path,
                 onAudioRecorded: (audioPath) {
                   setState(() {
                     _audioFile = XFile(audioPath);
                   });
                 },
                 onCancel: () {
-                  // Handle cancel if needed
+                  setState(() {
+                    _audioFile = null;
+                  });
                 },
               ),
             ],

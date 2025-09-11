@@ -918,6 +918,26 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                   IconButton(
                     onPressed: () async {
                       try {
+                        // Show loading indicator
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text('Loading audio...'),
+                                ],
+                              ),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+
                         // Get the full URL for the audio file
                         final audioUrl = _workOrder.remarkAudio!;
                         final audioService = ref.read(audioRecordingServiceProvider);
@@ -930,19 +950,53 @@ class _WorkOrderDetailScreenState extends ConsumerState<WorkOrderDetailScreen> {
                         await audioService.playAudio(fullUrl);
                         
                         if (mounted) {
+                          ScaffoldMessenger.of(context).clearSnackBars();
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Playing audio note...')),
+                            const SnackBar(
+                              content: Row(
+                                children: [
+                                  Icon(Icons.play_arrow, color: Colors.white),
+                                  SizedBox(width: 8),
+                                  Text('Playing audio note...'),
+                                ],
+                              ),
+                              backgroundColor: Colors.green,
+                              duration: Duration(seconds: 2),
+                            ),
                           );
                         }
                       } catch (e) {
                         if (mounted) {
+                          ScaffoldMessenger.of(context).clearSnackBars();
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error playing audio: $e')),
+                            SnackBar(
+                              content: Row(
+                                children: [
+                                  const Icon(Icons.error_outline, color: Colors.white),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Error playing audio: ${e.toString().replaceAll('Exception: ', '')}',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              backgroundColor: Colors.red,
+                              duration: const Duration(seconds: 4),
+                              action: SnackBarAction(
+                                label: 'Retry',
+                                textColor: Colors.white,
+                                onPressed: () {
+                                  // Retry playing audio
+                                },
+                              ),
+                            ),
                           );
                         }
                       }
                     },
                     icon: Icon(Icons.play_arrow, color: Colors.blue[700]),
+                    tooltip: 'Play audio note',
                   ),
                 ],
               ),
