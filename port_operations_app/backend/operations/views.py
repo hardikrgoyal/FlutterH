@@ -12,7 +12,7 @@ from .models import (
     VehicleType, WorkType, PartyMaster, ContractorMaster, ServiceTypeMaster, UnitTypeMaster,
     Vehicle, VehicleDocument,
     # Maintenance system models
-    Vendor, WorkOrder, PurchaseOrder, POItem, Stock, IssueSlip, WorkOrderPurchaseLink
+    Vendor, WorkOrder, PurchaseOrder, POItem, Stock, IssueSlip, WorkOrderPurchaseLink, AuditTrail
 )
 from .serializers import (
     CargoOperationSerializer, RateMasterSerializer, EquipmentSerializer, EquipmentRateMasterSerializer,
@@ -22,7 +22,7 @@ from .serializers import (
     VehicleSerializer, VehicleDocumentSerializer, VehicleDocumentHistorySerializer,
     # Maintenance system serializers
     VendorSerializer, WorkOrderSerializer, PurchaseOrderSerializer, POItemSerializer,
-    StockSerializer, IssueSlipSerializer, WorkOrderPurchaseLinkSerializer
+    StockSerializer, IssueSlipSerializer, WorkOrderPurchaseLinkSerializer, AuditTrailSerializer
 )
 from authentication.permissions import (
     CanCreateOperations, CanManageEquipment, IsManagerOrAdmin,
@@ -883,6 +883,18 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
             permission_classes = [IsSupervisorOrAbove]
         return [permission() for permission in permission_classes]
     
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        try:
+            AuditTrail.objects.create(
+                entity_type='work_order', entity_id=instance.id,
+                related_entity_type='-', related_entity_id=0,
+                action='update', performed_by=self.request.user, source='API'
+            )
+        except Exception:
+            pass
+        return instance
+    
     @action(detail=True, methods=['patch'], permission_classes=[CanEnterBillNumbers])
     def update_bill_number(self, request, pk=None):
         """
@@ -911,8 +923,25 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
         work_order = self.get_object()
         work_order.status = 'closed'
         work_order.save()
+        # Auto-close all linked POs
+        linked_pos = PurchaseOrder.objects.filter(wo_links__work_order=work_order, status='open').distinct()
+        updated = 0
+        for po in linked_pos:
+            po.status = 'closed'
+            po.save(update_fields=['status'])
+            AuditTrail.objects.create(
+                entity_type='purchase_order', entity_id=po.id,
+                related_entity_type='work_order', related_entity_id=work_order.id,
+                action='update', performed_by=request.user, source='auto-close:wo-closed'
+            )
+            updated += 1
+        AuditTrail.objects.create(
+            entity_type='work_order', entity_id=work_order.id,
+            related_entity_type='-', related_entity_id=0,
+            action='update', performed_by=request.user, source=f'closed; auto-closed-pos={updated}'
+        )
         
-        return Response({'message': 'Work order closed successfully'})
+        return Response({'message': 'Work order closed successfully', 'pos_closed': updated})
 
     @action(detail=True, methods=['post'])
     def link_po(self, request, pk=None):
@@ -926,6 +955,8 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Purchase order not found'}, status=status.HTTP_404_NOT_FOUND)
         if work_order.status == 'closed':
             return Response({'error': 'Cannot link a closed work order'}, status=status.HTTP_400_BAD_REQUEST)
+        if purchase_order.status == 'closed':
+            return Response({'error': 'Cannot link a closed purchase order'}, status=status.HTTP_400_BAD_REQUEST)
         # Ensure the PO is not already linked to another WO
         if WorkOrderPurchaseLink.objects.filter(purchase_order=purchase_order).exists():
             return Response({'error': 'This PO is already linked to a work order'}, status=status.HTTP_400_BAD_REQUEST)
@@ -933,6 +964,12 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
             work_order=work_order,
             purchase_order=purchase_order,
             defaults={'created_by': request.user}
+        )
+        # Audit
+        AuditTrail.objects.create(
+            entity_type='work_order', entity_id=work_order.id,
+            related_entity_type='purchase_order', related_entity_id=purchase_order.id,
+            action='link', performed_by=request.user, source=request.data.get('source') or 'API'
         )
         serializer = WorkOrderPurchaseLinkSerializer(link)
         return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
@@ -943,8 +980,21 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
         po_id = request.data.get('purchase_order')
         if not po_id:
             return Response({'error': 'purchase_order is required'}, status=status.HTTP_400_BAD_REQUEST)
-        WorkOrderPurchaseLink.objects.filter(work_order=work_order, purchase_order_id=po_id).delete()
+        deleted = WorkOrderPurchaseLink.objects.filter(work_order=work_order, purchase_order_id=po_id)
+        if deleted.exists():
+            AuditTrail.objects.create(
+                entity_type='work_order', entity_id=work_order.id,
+                related_entity_type='purchase_order', related_entity_id=int(po_id),
+                action='unlink', performed_by=request.user, source=request.data.get('source') or 'API'
+            )
+        deleted.delete()
         return Response({'message': 'Unlinked successfully'})
+
+    @action(detail=True, methods=['get'])
+    def audits(self, request, pk=None):
+        work_order = self.get_object()
+        audits = AuditTrail.objects.filter(entity_type='work_order', entity_id=work_order.id)[:50]
+        return Response(AuditTrailSerializer(audits, many=True).data)
 
 
 class PurchaseOrderViewSet(viewsets.ModelViewSet):
@@ -966,6 +1016,18 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         else:
             permission_classes = [IsSupervisorOrAbove]
         return [permission() for permission in permission_classes]
+    
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        try:
+            AuditTrail.objects.create(
+                entity_type='purchase_order', entity_id=instance.id,
+                related_entity_type='-', related_entity_id=0,
+                action='update', performed_by=self.request.user, source='API'
+            )
+        except Exception:
+            pass
+        return instance
     
     @action(detail=False, methods=['get'])
     def duplicate_check(self, request):
@@ -1044,6 +1106,8 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Work order not found'}, status=status.HTTP_404_NOT_FOUND)
         if work_order.status == 'closed':
             return Response({'error': 'Cannot link a closed work order'}, status=status.HTTP_400_BAD_REQUEST)
+        if purchase_order.status == 'closed':
+            return Response({'error': 'Cannot link a closed purchase order'}, status=status.HTTP_400_BAD_REQUEST)
         # Ensure the PO is not already linked to another WO
         if WorkOrderPurchaseLink.objects.filter(purchase_order=purchase_order).exists():
             return Response({'error': 'This PO is already linked to a work order'}, status=status.HTTP_400_BAD_REQUEST)
@@ -1051,6 +1115,12 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
             work_order=work_order,
             purchase_order=purchase_order,
             defaults={'created_by': request.user}
+        )
+        # Audit
+        AuditTrail.objects.create(
+            entity_type='purchase_order', entity_id=purchase_order.id,
+            related_entity_type='work_order', related_entity_id=work_order.id,
+            action='link', performed_by=request.user, source=request.data.get('source') or 'API'
         )
         serializer = WorkOrderPurchaseLinkSerializer(link)
         return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
@@ -1061,8 +1131,21 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         wo_id = request.data.get('work_order')
         if not wo_id:
             return Response({'error': 'work_order is required'}, status=status.HTTP_400_BAD_REQUEST)
-        WorkOrderPurchaseLink.objects.filter(work_order_id=wo_id, purchase_order=purchase_order).delete()
+        deleted = WorkOrderPurchaseLink.objects.filter(work_order_id=wo_id, purchase_order=purchase_order)
+        if deleted.exists():
+            AuditTrail.objects.create(
+                entity_type='purchase_order', entity_id=purchase_order.id,
+                related_entity_type='work_order', related_entity_id=int(wo_id),
+                action='unlink', performed_by=request.user, source=request.data.get('source') or 'API'
+            )
+        deleted.delete()
         return Response({'message': 'Unlinked successfully'})
+
+    @action(detail=True, methods=['get'])
+    def audits(self, request, pk=None):
+        purchase_order = self.get_object()
+        audits = AuditTrail.objects.filter(entity_type='purchase_order', entity_id=purchase_order.id)[:50]
+        return Response(AuditTrailSerializer(audits, many=True).data)
 
 
 class POItemViewSet(viewsets.ModelViewSet):

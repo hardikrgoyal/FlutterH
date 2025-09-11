@@ -10,6 +10,8 @@ import '../services/work_order_service.dart';
 import '../../auth/auth_service.dart';
 import 'po_items_screen.dart';
 import 'work_order_detail_screen.dart';
+import 'create_purchase_order_screen.dart';
+import 'dart:math' as math;
 
 class PurchaseOrderDetailScreen extends ConsumerStatefulWidget {
   final PurchaseOrder purchaseOrder;
@@ -208,12 +210,33 @@ class _PurchaseOrderDetailScreenState extends ConsumerState<PurchaseOrderDetailS
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Purchase Order Information',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+            Row(
+              children: [
+                const Text(
+                  'Purchase Order Information',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                if (user?.canManagePurchaseOrders == true)
+                  TextButton.icon(
+                    onPressed: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CreatePurchaseOrderScreen(initialPurchaseOrder: _purchaseOrder),
+                        ),
+                      );
+                      if (result == true) {
+                        ref.invalidate(purchaseOrdersProvider('open'));
+                      }
+                    },
+                    icon: const Icon(Icons.edit, size: 16),
+                    label: const Text('Edit'),
+                  ),
+              ],
             ),
             const SizedBox(height: 16),
             _buildInfoRow('Purchase Order ID', _purchaseOrder.poId),
@@ -226,6 +249,107 @@ class _PurchaseOrderDetailScreenState extends ConsumerState<PurchaseOrderDetailS
         ),
       ),
     );
+  }
+
+  Future<void> _onEditPurchaseOrder() async {
+    final categoryController = TextEditingController(text: _purchaseOrder.category);
+    final remarkController = TextEditingController(text: _purchaseOrder.remarkText ?? '');
+    final billController = TextEditingController(text: _purchaseOrder.billNo ?? '');
+    final formKey = GlobalKey<FormState>();
+    final categories = const ['engine','hydraulic','bushing','electrical','other'];
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Purchase Order'),
+        content: Form(
+          key: formKey,
+          child: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: categoryController.text.isNotEmpty ? categoryController.text : null,
+                  items: categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                  onChanged: (v) => categoryController.text = v ?? _purchaseOrder.category,
+                  decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder()),
+                  validator: (v) => (v == null || v.isEmpty) ? 'Select category' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: remarkController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(labelText: 'Remarks', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: billController,
+                  decoration: const InputDecoration(labelText: 'Bill No. (optional)', border: OutlineInputBorder()),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) Navigator.pop(context, true);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    try {
+      setState(() => _isLoading = true);
+      final payload = {
+        'category': categoryController.text,
+        'remark_text': remarkController.text,
+      };
+      await ref.read(purchaseOrderServiceProvider).updatePurchaseOrder(_purchaseOrder.id!, payload);
+      if ((billController.text).trim() != (_purchaseOrder.billNo ?? '')) {
+        await ref.read(purchaseOrderServiceProvider).updateBillNumber(_purchaseOrder.id!, billController.text.trim());
+      }
+      ref.invalidate(purchaseOrdersProvider('open'));
+      setState(() {
+        _isLoading = false;
+        _purchaseOrder = PurchaseOrder(
+          id: _purchaseOrder.id,
+          poId: _purchaseOrder.poId,
+          vendor: _purchaseOrder.vendor,
+          vendorName: _purchaseOrder.vendorName,
+          vehicle: _purchaseOrder.vehicle,
+          vehicleNumber: _purchaseOrder.vehicleNumber,
+          vehicleOther: _purchaseOrder.vehicleOther,
+          forStock: _purchaseOrder.forStock,
+          category: categoryController.text,
+          remarkText: remarkController.text,
+          remarkAudio: _purchaseOrder.remarkAudio,
+          status: _purchaseOrder.status,
+          linkedWo: _purchaseOrder.linkedWo,
+          linkedWoId: _purchaseOrder.linkedWoId,
+          linkedWoIds: _purchaseOrder.linkedWoIds,
+          billNo: billController.text.trim().isEmpty ? null : billController.text.trim(),
+          duplicateWarning: _purchaseOrder.duplicateWarning,
+          itemsCount: _purchaseOrder.itemsCount,
+          totalAmount: _purchaseOrder.totalAmount,
+          createdBy: _purchaseOrder.createdBy,
+          createdByName: _purchaseOrder.createdByName,
+          createdAt: _purchaseOrder.createdAt,
+          updatedAt: _purchaseOrder.updatedAt,
+        );
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Purchase order updated')));
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update: $e')));
+    }
   }
 
   Widget _buildVendorTargetCard() {
@@ -245,8 +369,134 @@ class _PurchaseOrderDetailScreenState extends ConsumerState<PurchaseOrderDetailS
             const SizedBox(height: 16),
             _buildInfoRow('Vendor', _purchaseOrder.vendorName ?? 'Unknown'),
             _buildInfoRow('Target', _purchaseOrder.displayTarget),
+            const SizedBox(height: 16),
+            FutureBuilder<List<Map<String, dynamic>>>(
+              future: ref.read(purchaseOrderServiceProvider).getAudits(_purchaseOrder.id!),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return const SizedBox.shrink();
+                final audits = snapshot.data!;
+                if (audits.isEmpty) return const SizedBox.shrink();
+                final recent = audits.take(5).toList();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Text('Recent Activity', style: TextStyle(fontWeight: FontWeight.w600)),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: () => _showAllAudits(context, audits),
+                          child: const Text('View all'),
+                        )
+                      ],
+                    ),
+                    for (final a in recent)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            Icon(
+                              a['action'] == 'link' ? Icons.link : a['action'] == 'unlink' ? Icons.link_off : Icons.edit,
+                              size: 16,
+                              color: Colors.grey[700],
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(_auditLine(a))),
+                            Text(_shortTime(a['created_at'])),
+                          ],
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  String _auditLine(Map<String, dynamic> a) {
+    final user = a['performed_by_name'] ?? 'Someone';
+    final action = a['action'];
+    if (action == 'link') return '$user linked ${a['related_entity_type']} ${a['related_entity_id']}';
+    if (action == 'unlink') return '$user unlinked ${a['related_entity_type']} ${a['related_entity_id']}';
+    if (action == 'update') return '$user updated this purchase order';
+    return '$user did $action';
+  }
+
+  String _shortTime(String? iso) {
+    if (iso == null) return '';
+    return iso.substring(11, 16); // HH:MM
+  }
+
+  void _showAllAudits(BuildContext context, List<Map<String, dynamic>> audits) {
+    String? actionFilter;
+    String query = '';
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          final filtered = audits.where((a) {
+            final matchesAction = actionFilter == null || a['action'] == actionFilter;
+            final text = (_auditLine(a) + (a['performed_by_name'] ?? '')).toLowerCase();
+            final matchesQuery = text.contains(query.toLowerCase());
+            return matchesAction && matchesQuery;
+          }).toList();
+          return AlertDialog(
+            title: const Text('Activity'),
+            content: SizedBox(
+              width: 420,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      DropdownButton<String?>(
+                        value: actionFilter,
+                        hint: const Text('All actions'),
+                        items: const [
+                          DropdownMenuItem(value: null, child: Text('All')),
+                          DropdownMenuItem(value: 'link', child: Text('Link')),
+                          DropdownMenuItem(value: 'unlink', child: Text('Unlink')),
+                          DropdownMenuItem(value: 'update', child: Text('Update')),
+                        ],
+                        onChanged: (v) => setState(() => actionFilter = v),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search by user or text', isDense: true),
+                          onChanged: (v) => setState(() => query = v),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: filtered.length,
+                      itemBuilder: (context, i) => ListTile(
+                        dense: true,
+                        leading: Icon(
+                          filtered[i]['action'] == 'link' ? Icons.link : filtered[i]['action'] == 'unlink' ? Icons.link_off : Icons.edit,
+                          size: 18,
+                        ),
+                        title: Text(_auditLine(filtered[i])),
+                        subtitle: Text('${filtered[i]['performed_by_name'] ?? '-'} • ${filtered[i]['created_at'] ?? ''}'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+            ],
+          );
+        },
       ),
     );
   }
@@ -587,9 +837,9 @@ class _PurchaseOrderDetailScreenState extends ConsumerState<PurchaseOrderDetailS
   Future<void> _onLinkWo() async {
     try {
       final wos = await ref.read(workOrdersProvider('open').future);
-      // Only open WOs with no linked POs
-      final available = wos.where((w) => w.status == 'open').toList(); // Show all open WOs (since one WO can have multiple POs)
-      if (available.isEmpty) {
+      // Show all open WOs (one WO can have multiple POs)
+      final candidates = wos.where((w) => w.status == 'open').toList();
+      if (candidates.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('No available open WOs to link')),
@@ -598,25 +848,133 @@ class _PurchaseOrderDetailScreenState extends ConsumerState<PurchaseOrderDetailS
         return;
       }
 
+      // Dialog state
       WorkOrder? selected;
+      String query = '';
+      String sort = 'date_desc';
+      int pageSize = 50;
+      int page = 1;
+
       await showDialog(
         context: context,
         builder: (context) {
           return StatefulBuilder(
             builder: (context, setState) {
+              List<WorkOrder> filtered = candidates
+                  .where((wo) =>
+                      wo.woId.toLowerCase().contains(query.toLowerCase()) ||
+                      (wo.vendorName ?? '').toLowerCase().contains(query.toLowerCase()) ||
+                      wo.displayVehicle.toLowerCase().contains(query.toLowerCase()))
+                  .toList();
+
+              // Sort
+              filtered.sort((a, b) {
+                switch (sort) {
+                  case 'vendor_asc':
+                    return (a.vendorName ?? '').compareTo(b.vendorName ?? '');
+                  case 'vendor_desc':
+                    return (b.vendorName ?? '').compareTo(a.vendorName ?? '');
+                  case 'date_asc':
+                    return (a.id ?? 0).compareTo(b.id ?? 0);
+                  case 'date_desc':
+                  default:
+                    return (b.id ?? 0).compareTo(a.id ?? 0);
+                }
+              });
+
+              final total = filtered.length;
+              final end = (page * pageSize).clamp(0, total);
+              final items = filtered.take(end).toList();
+
               return AlertDialog(
                 title: const Text('Link Work Order'),
-                content: DropdownButtonFormField<WorkOrder>(
-                  value: selected,
-                  decoration: const InputDecoration(
-                    labelText: 'Select WO',
-                    border: OutlineInputBorder(),
+                content: SizedBox(
+                  width: math.min(420.0, MediaQuery.of(context).size.width - 48),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        decoration: const InputDecoration(
+                          prefixIcon: Icon(Icons.search),
+                          hintText: 'Search by WO ID, vendor, vehicle',
+                          isDense: true,
+                        ),
+                        onChanged: (v) => setState(() => query = v),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Text('Sort:', style: TextStyle(fontSize: 12)),
+                          const SizedBox(width: 6),
+                          DropdownButton<String>(
+                            value: sort,
+                            items: const [
+                              DropdownMenuItem(value: 'date_desc', child: Text('Date ↓')),
+                              DropdownMenuItem(value: 'date_asc', child: Text('Date ↑')),
+                              DropdownMenuItem(value: 'vendor_asc', child: Text('Vendor A→Z')),
+                              DropdownMenuItem(value: 'vendor_desc', child: Text('Vendor Z→A')),
+                            ],
+                            onChanged: (v) => setState(() => sort = v ?? 'date_desc'),
+                          ),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
+                            child: Text('${items.length}/$total'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Flexible(
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: items.length,
+                          itemBuilder: (context, index) {
+                            final wo = items[index];
+                            return RadioListTile<WorkOrder>(
+                              value: wo,
+                              groupValue: selected,
+                              onChanged: (v) => setState(() => selected = v),
+                              title: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          wo.woId,
+                                          style: const TextStyle(fontWeight: FontWeight.w600),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: [
+                                      Chip(label: Text(wo.statusDisplay), visualDensity: VisualDensity.compact),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              subtitle: Text(
+                                '${wo.vendorName ?? '-'} • ${wo.displayVehicle}',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      if (items.length < total)
+                        TextButton(
+                          onPressed: () => setState(() => page += 1),
+                          child: const Text('Load more'),
+                        ),
+                    ],
                   ),
-                  items: available.map((wo) => DropdownMenuItem<WorkOrder>(
-                    value: wo,
-                    child: Text('${wo.woId} - ${wo.displayVehicle}'),
-                  )).toList(),
-                  onChanged: (value) => setState(() => selected = value),
                 ),
                 actions: [
                   TextButton(
@@ -637,8 +995,7 @@ class _PurchaseOrderDetailScreenState extends ConsumerState<PurchaseOrderDetailS
       if (selected == null) return;
 
       setState(() => _isLoading = true);
-      final service = ref.read(purchaseOrderServiceProvider);
-      await service.linkWorkOrder(_purchaseOrder.id!, selected!.id!);
+      await ref.read(purchaseOrderServiceProvider).linkWorkOrder(_purchaseOrder.id!, selected!.id!);
 
       // Cross-refresh: invalidate both PO and WO lists
       ref.invalidate(purchaseOrdersProvider('open'));
@@ -684,7 +1041,7 @@ class _PurchaseOrderDetailScreenState extends ConsumerState<PurchaseOrderDetailS
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to link WO: $e')),
+          SnackBar(content: Text('Failed to link work order: $e')),
         );
       }
     }
@@ -703,6 +1060,18 @@ class _PurchaseOrderDetailScreenState extends ConsumerState<PurchaseOrderDetailS
   }
 
   Future<void> _unlinkWoById(String woId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unlink Work Order'),
+        content: Text('Are you sure you want to unlink WO $woId from this purchase order?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Unlink')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
     try {
       final wos = await ref.read(workOrdersProvider('open').future);
       final selected = wos.firstWhere((w) => w.woId == woId);

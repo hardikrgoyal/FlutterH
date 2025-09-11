@@ -5,7 +5,7 @@ from .models import (
     VehicleType, WorkType, PartyMaster, ContractorMaster, ServiceTypeMaster, UnitTypeMaster,
     Vehicle, VehicleDocument,
     # Maintenance system models
-    Vendor, WorkOrder, PurchaseOrder, POItem, Stock, IssueSlip, WorkOrderPurchaseLink
+    Vendor, WorkOrder, PurchaseOrder, POItem, Stock, IssueSlip, WorkOrderPurchaseLink, AuditTrail
 )
 
 class CargoOperationSerializer(serializers.ModelSerializer):
@@ -407,10 +407,10 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
     vendor_name = serializers.CharField(source='vendor.name', read_only=True)
     vehicle_number = serializers.CharField(source='vehicle.vehicle_number', read_only=True)
     linked_wo_id = serializers.CharField(source='linked_wo.wo_id', read_only=True)
+    linked_wo_ids = serializers.SerializerMethodField()
     duplicate_warning = serializers.SerializerMethodField()
     items_count = serializers.SerializerMethodField()
     total_amount = serializers.SerializerMethodField()
-    linked_wo_ids = serializers.SerializerMethodField()
 
     class Meta:
         model = PurchaseOrder
@@ -508,3 +508,12 @@ class IssueSlipSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Either assigned_vehicle or assigned_vehicle_other must be provided")
         
         return data 
+
+
+class AuditTrailSerializer(serializers.ModelSerializer):
+    performed_by_name = serializers.CharField(source='performed_by.username', read_only=True)
+
+    class Meta:
+        model = AuditTrail
+        fields = ['id', 'entity_type', 'entity_id', 'related_entity_type', 'related_entity_id', 'action', 'performed_by', 'performed_by_name', 'source', 'created_at']
+        read_only_fields = ['created_at'] 

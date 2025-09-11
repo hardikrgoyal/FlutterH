@@ -9,9 +9,11 @@ import '../services/work_order_service.dart';
 import '../services/purchase_order_service.dart';
 import '../services/audio_recording_service.dart';
 import '../../auth/auth_service.dart';
+import '../../../shared/models/work_order_model.dart';
 
 class CreateWorkOrderScreen extends ConsumerStatefulWidget {
-  const CreateWorkOrderScreen({super.key});
+  final WorkOrder? initialWorkOrder;
+  const CreateWorkOrderScreen({super.key, this.initialWorkOrder});
 
   @override
   ConsumerState<CreateWorkOrderScreen> createState() => _CreateWorkOrderScreenState();
@@ -35,6 +37,7 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
   String? _selectedVehicleNumber;
   String? _customVehicleNumber;
   int? _selectedLinkedPo;
+  bool get _isEdit => widget.initialWorkOrder != null;
   
   // Dropdown options
   final List<String> _categories = [
@@ -44,6 +47,23 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
     'Electrical',
     'Other'
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEdit) {
+      final wo = widget.initialWorkOrder!;
+      _selectedVendorId = wo.vendor;
+      _selectedCategory = wo.categoryDisplay;
+      _status = wo.status;
+      _remarkController.text = wo.remarkText ?? '';
+      _selectedVehicleNumber = wo.vehicleNumber ?? (wo.vehicleOther != null ? 'others' : null);
+      _customVehicleNumber = wo.vehicleOther;
+      if (wo.vehicleOther != null) {
+        _vehicleOtherController.text = wo.vehicleOther!;
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -60,7 +80,7 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Work Order'),
+        title: Text(_isEdit ? 'Edit Work Order' : 'Create Work Order'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
@@ -393,9 +413,9 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 16),
       ),
-      child: const Text(
-        'Create Work Order',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      child: Text(
+        _isEdit ? 'Save Changes' : 'Create Work Order',
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -444,18 +464,22 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
         'linked_po': _selectedLinkedPo,
       };
 
-      await workOrderService.createWorkOrder(workOrderData, audioFile: _audioFile);
+      if (_isEdit) {
+        await workOrderService.updateWorkOrder(widget.initialWorkOrder!.id!, workOrderData, audioFile: _audioFile);
+      } else {
+        await workOrderService.createWorkOrder(workOrderData, audioFile: _audioFile);
+      }
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Work order created successfully')),
+          SnackBar(content: Text(_isEdit ? 'Work order updated successfully' : 'Work order created successfully')),
         );
         Navigator.pop(context, true); // Return true to indicate success
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error creating work order: $e')),
+          SnackBar(content: Text(_isEdit ? 'Error updating work order: $e' : 'Error creating work order: $e')),
         );
       }
     }

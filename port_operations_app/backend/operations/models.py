@@ -1026,3 +1026,32 @@ class WorkOrderPurchaseLink(models.Model):
 
     def __str__(self):
         return f"{self.work_order.wo_id} ↔ {self.purchase_order.po_id}"
+
+
+class AuditTrail(models.Model):
+    """
+    Minimal audit log for link/unlink of WO and PO.
+    """
+    ACTION_CHOICES = (
+        ('link', 'Link'),
+        ('unlink', 'Unlink'),
+    )
+    entity_type = models.CharField(max_length=32)  # 'work_order' or 'purchase_order'
+    entity_id = models.IntegerField()
+    related_entity_type = models.CharField(max_length=32)  # 'purchase_order' or 'work_order'
+    related_entity_id = models.IntegerField()
+    action = models.CharField(max_length=16, choices=ACTION_CHOICES)
+    performed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    source = models.CharField(max_length=128, null=True, blank=True)  # e.g., 'WO Detail', 'PO Detail', 'API'
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['entity_type', 'entity_id']),
+            models.Index(fields=['related_entity_type', 'related_entity_id']),
+            models.Index(fields=['action']),
+        ]
+
+    def __str__(self):
+        return f"{self.action} {self.related_entity_type}:{self.related_entity_id} on {self.entity_type}:{self.entity_id}"

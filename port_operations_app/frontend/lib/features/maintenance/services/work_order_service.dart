@@ -121,6 +121,16 @@ class WorkOrderService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getAudits(int workOrderId) async {
+    try {
+      final response = await _apiService.get('/operations/work-orders/$workOrderId/audits/');
+      final data = response.data as List<dynamic>;
+      return data.cast<Map<String, dynamic>>();
+    } catch (e) {
+      throw Exception('Failed to load audits: ${e.toString()}');
+    }
+  }
+
   /// Update bill number
   Future<void> updateBillNumber(int workOrderId, String billNo) async {
     try {

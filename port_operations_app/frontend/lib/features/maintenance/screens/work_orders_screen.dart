@@ -6,6 +6,7 @@ import '../../../shared/models/work_order_model.dart';
 import '../../../shared/models/user_model.dart';
 import '../../../shared/widgets/app_drawer.dart';
 import '../services/work_order_service.dart';
+import '../services/purchase_order_service.dart';
 import '../../auth/auth_service.dart';
 import 'create_work_order_screen.dart';
 import 'work_order_detail_screen.dart';
@@ -81,9 +82,17 @@ class _WorkOrdersScreenState extends ConsumerState<WorkOrdersScreen> {
 
   Widget _buildBody(User? user) {
     final workOrdersAsync = ref.watch(workOrdersProvider(_selectedStatus));
+    final purchaseOrdersAsync = ref.watch(purchaseOrdersProvider('all'));
 
     return workOrdersAsync.when(
-      data: (workOrders) => _buildWorkOrdersList(workOrders, user),
+      data: (workOrders) => purchaseOrdersAsync.when(
+        data: (purchaseOrders) {
+          final poById = {for (var po in purchaseOrders) po.poId: po};
+          return _buildWorkOrdersList(workOrders, user, poById);
+        },
+        loading: () => const LoadingWidget(),
+        error: (_, __) => _buildWorkOrdersList(workOrders, user, const {}),
+      ),
       loading: () => const LoadingWidget(),
       error: (error, stack) => Center(
         child: Column(
@@ -103,7 +112,7 @@ class _WorkOrdersScreenState extends ConsumerState<WorkOrdersScreen> {
     );
   }
 
-  Widget _buildWorkOrdersList(List<WorkOrder> workOrders, User? user) {
+  Widget _buildWorkOrdersList(List<WorkOrder> workOrders, User? user, Map<String, dynamic> poById) {
     if (workOrders.isEmpty) {
       return Center(
         child: Column(
@@ -145,13 +154,13 @@ class _WorkOrdersScreenState extends ConsumerState<WorkOrdersScreen> {
         itemCount: workOrders.length,
         itemBuilder: (context, index) {
           final workOrder = workOrders[index];
-          return _buildWorkOrderCard(workOrder, user);
+          return _buildWorkOrderCard(workOrder, user, poById);
         },
       ),
     );
   }
 
-  Widget _buildWorkOrderCard(WorkOrder workOrder, User? user) {
+  Widget _buildWorkOrderCard(WorkOrder workOrder, User? user, Map<String, dynamic> poById) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: InkWell(
@@ -205,6 +214,17 @@ class _WorkOrdersScreenState extends ConsumerState<WorkOrdersScreen> {
               _buildInfoRow(Icons.directions_car, 'Vehicle', workOrder.displayVehicle),
               const SizedBox(height: 4),
               _buildInfoRow(Icons.category, 'Category', workOrder.categoryDisplay),
+              if ((workOrder.linkedPoIds ?? []).isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final poId in workOrder.linkedPoIds!)
+                      _buildPoChip(poId, poById[poId]?.vendorName as String?, poById[poId]?.status as String?)
+                  ],
+                ),
+              ],
               if (workOrder.billNo != null) ...[
                 const SizedBox(height: 4),
                 _buildInfoRow(Icons.receipt, 'Bill No.', workOrder.billNo!),
@@ -284,6 +304,33 @@ class _WorkOrdersScreenState extends ConsumerState<WorkOrdersScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPoChip(String poId, String? vendorName, String? status) {
+    final color = (status ?? 'open') == 'open' ? Colors.blue[50] : Colors.grey[200];
+    final border = (status ?? 'open') == 'open' ? Colors.blue[200] : Colors.grey[300];
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: border!),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.receipt_long, size: 14),
+          const SizedBox(width: 4),
+          Text(poId, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+          if (vendorName != null) ...[
+            const SizedBox(width: 6),
+            Text('•', style: TextStyle(color: Colors.grey[600])),
+            const SizedBox(width: 6),
+            Text(vendorName, style: const TextStyle(fontSize: 12)),
+          ]
+        ],
+      ),
     );
   }
 

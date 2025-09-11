@@ -10,9 +10,11 @@ import '../services/purchase_order_service.dart';
 import '../services/work_order_service.dart';
 import '../services/audio_recording_service.dart';
 import '../../auth/auth_service.dart';
+import '../../../shared/models/purchase_order_model.dart';
 
 class CreatePurchaseOrderScreen extends ConsumerStatefulWidget {
-  const CreatePurchaseOrderScreen({super.key});
+  final PurchaseOrder? initialPurchaseOrder;
+  const CreatePurchaseOrderScreen({super.key, this.initialPurchaseOrder});
 
   @override
   ConsumerState<CreatePurchaseOrderScreen> createState() => _CreatePurchaseOrderScreenState();
@@ -36,6 +38,7 @@ class _CreatePurchaseOrderScreenState extends ConsumerState<CreatePurchaseOrderS
   String? _customVehicleNumber;
   bool _forStock = false;
   int? _selectedLinkedWo;
+  bool get _isEdit => widget.initialPurchaseOrder != null;
   
   // Dropdown options
   final List<String> _categories = [
@@ -45,6 +48,24 @@ class _CreatePurchaseOrderScreenState extends ConsumerState<CreatePurchaseOrderS
     'Electrical',
     'Other'
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEdit) {
+      final po = widget.initialPurchaseOrder!;
+      _selectedVendorId = po.vendor;
+      _selectedCategory = po.categoryDisplay;
+      _status = po.status;
+      _remarkController.text = po.remarkText ?? '';
+      _forStock = po.forStock;
+      _selectedVehicleNumber = po.vehicleNumber ?? (po.vehicleOther != null ? 'others' : null);
+      _customVehicleNumber = po.vehicleOther;
+      if (po.vehicleOther != null) {
+        _vehicleOtherController.text = po.vehicleOther!;
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -61,7 +82,7 @@ class _CreatePurchaseOrderScreenState extends ConsumerState<CreatePurchaseOrderS
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Purchase Order'),
+        title: Text(_isEdit ? 'Edit Purchase Order' : 'Create Purchase Order'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
@@ -473,9 +494,9 @@ class _CreatePurchaseOrderScreenState extends ConsumerState<CreatePurchaseOrderS
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 16),
       ),
-      child: const Text(
-        'Create Purchase Order',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      child: Text(
+        _isEdit ? 'Save Changes' : 'Create Purchase Order',
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -536,19 +557,19 @@ class _CreatePurchaseOrderScreenState extends ConsumerState<CreatePurchaseOrderS
         purchaseOrderData['vehicle_other'] = _vehicleOtherController.text.trim();
       }
 
-      await purchaseOrderService.createPurchaseOrder(purchaseOrderData, audioFile: _audioFile);
+      if (_isEdit) {
+        await purchaseOrderService.updatePurchaseOrder(widget.initialPurchaseOrder!.id!, purchaseOrderData);
+      } else {
+        await purchaseOrderService.createPurchaseOrder(purchaseOrderData, audioFile: _audioFile);
+      }
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Purchase order created successfully')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isEdit ? 'Purchase order updated successfully' : 'Purchase order created successfully')));
         Navigator.pop(context, true); // Return true to indicate success
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error creating purchase order: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isEdit ? 'Error updating purchase order: $e' : 'Error creating purchase order: $e')));
       }
     }
   }
