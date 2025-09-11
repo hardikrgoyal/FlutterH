@@ -397,7 +397,13 @@ class WorkOrderSerializer(serializers.ModelSerializer):
     
     def validate(self, data):
         # Ensure either vehicle or vehicle_other is provided
-        if not data.get('vehicle') and not data.get('vehicle_other'):
+        vehicle = data.get('vehicle')
+        vehicle_other = data.get('vehicle_other')
+        
+        # Check if vehicle_other is provided and not empty
+        has_vehicle_other = vehicle_other and vehicle_other.strip()
+        
+        if not vehicle and not has_vehicle_other:
             raise serializers.ValidationError("Either vehicle or vehicle_other must be provided")
         return data
 
@@ -445,7 +451,13 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
     def validate(self, data):
         # Ensure either vehicle, vehicle_other, or for_stock is specified
         if not data.get('for_stock'):
-            if not data.get('vehicle') and not data.get('vehicle_other'):
+            vehicle = data.get('vehicle')
+            vehicle_other = data.get('vehicle_other')
+            
+            # Check if vehicle_other is provided and not empty
+            has_vehicle_other = vehicle_other and vehicle_other.strip()
+            
+            if not vehicle and not has_vehicle_other:
                 raise serializers.ValidationError("Either vehicle, vehicle_other, or for_stock must be specified")
         return data
 

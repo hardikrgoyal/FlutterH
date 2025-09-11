@@ -553,8 +553,12 @@ class _CreatePurchaseOrderScreenState extends ConsumerState<CreatePurchaseOrderS
         'category': _selectedCategory.toLowerCase(),
         'remark_text': _remarkController.text.trim(),
         'status': _status,
-        'linked_wo': _selectedLinkedWo,
       };
+
+      // Only add linked_wo if it's actually selected (not null or 0)
+      if (_selectedLinkedWo != null && _selectedLinkedWo! > 0) {
+        purchaseOrderData['linked_wo'] = _selectedLinkedWo!;
+      }
 
       if (!_forStock) {
         purchaseOrderData['vehicle_other'] = _vehicleOtherController.text.trim();

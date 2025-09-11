@@ -499,12 +499,20 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
       
       final workOrderData = {
         'vendor': vendorId,
-        'vehicle_other': _vehicleOtherController.text.trim(),
         'category': _selectedCategory.toLowerCase(),
         'remark_text': _remarkController.text.trim(),
         'status': _status,
-        'linked_po': _selectedLinkedPo,
       };
+
+      // Only add vehicle_other if it's not empty
+      if (_vehicleOtherController.text.trim().isNotEmpty) {
+        workOrderData['vehicle_other'] = _vehicleOtherController.text.trim();
+      }
+
+      // Only add linked_po if it's actually selected (not null or 0)
+      if (_selectedLinkedPo != null && _selectedLinkedPo! > 0) {
+        workOrderData['linked_po'] = _selectedLinkedPo!;
+      }
 
       if (_isEdit) {
         await workOrderService.updateWorkOrder(widget.initialWorkOrder!.id!, workOrderData, audioFile: _audioFile);
