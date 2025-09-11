@@ -1,6 +1,6 @@
 # Accountant Permissions Fix
 
-## 🐛 **Issue Description**
+## 🐛 **Issue Descriptions**
 
 **Problem**: Accountant users were getting a 403 error "You do not have permission to perform this action" when trying to access the Vehicle Documents screen.
 
