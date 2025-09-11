@@ -388,17 +388,56 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            AudioRecordingWidget(
-              onAudioRecorded: (audioPath) {
-                setState(() {
-                  _audioFile = XFile(audioPath);
-                });
-              },
-              onCancel: () {
-                // Handle cancel if needed
-              },
-            ),
+            const SizedBox(height: 8),
+            if (_audioFile != null) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.audiotrack, color: Colors.green),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Audio recorded: ${_audioFile!.name}',
+                        style: const TextStyle(color: Colors.green),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () async {
+                        final audioService = ref.read(audioRecordingServiceProvider);
+                        await audioService.playAudio(_audioFile!.path);
+                      },
+                      icon: const Icon(Icons.play_arrow, color: Colors.blue),
+                      tooltip: 'Play audio',
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        setState(() {
+                          _audioFile = null;
+                        });
+                      },
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      tooltip: 'Delete audio',
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              AudioRecordingWidget(
+                onAudioRecorded: (audioPath) {
+                  setState(() {
+                    _audioFile = XFile(audioPath);
+                  });
+                },
+                onCancel: () {
+                  // Handle cancel if needed
+                },
+              ),
+            ],
           ],
         ),
       ),

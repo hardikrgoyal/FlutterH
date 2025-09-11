@@ -474,6 +474,15 @@ class AppDrawer extends ConsumerWidget {
               context.go('/labour');
             },
           },
+          {
+            'title': 'Wallet',
+            'icon': Icons.account_balance_wallet,
+            'color': AppColors.success,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/wallet');
+            },
+          },
           // Maintenance System (Limited Access)
           {
             'title': 'Work Orders',

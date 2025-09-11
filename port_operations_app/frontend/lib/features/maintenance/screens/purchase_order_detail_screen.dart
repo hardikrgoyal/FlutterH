@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../shared/widgets/loading_widget.dart';
 import '../../../shared/models/purchase_order_model.dart';
 import '../../../shared/models/work_order_model.dart';
 import '../../../shared/models/user_model.dart';
 import '../services/purchase_order_service.dart';
 import '../services/work_order_service.dart';
+import '../services/audio_recording_service.dart';
 import '../../auth/auth_service.dart';
 import 'po_items_screen.dart';
 import 'work_order_detail_screen.dart';
@@ -660,11 +662,31 @@ class _PurchaseOrderDetailScreenState extends ConsumerState<PurchaseOrderDetailS
                     ),
                   ),
                   IconButton(
-                    onPressed: () {
-                      // TODO: Implement audio playback
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Audio playback - Coming Soon!')),
-                      );
+                    onPressed: () async {
+                      try {
+                        // Get the full URL for the audio file
+                        final audioUrl = _purchaseOrder.remarkAudio!;
+                        final audioService = ref.read(audioRecordingServiceProvider);
+                        
+                        // Check if it's a relative URL and make it absolute
+                        final fullUrl = audioUrl.startsWith('http') 
+                            ? audioUrl 
+                            : '${AppConstants.baseUrl.replaceAll('/api', '')}$audioUrl';
+                        
+                        await audioService.playAudio(fullUrl);
+                        
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Playing audio note...')),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error playing audio: $e')),
+                          );
+                        }
+                      }
                     },
                     icon: Icon(Icons.play_arrow, color: Colors.blue[700]),
                   ),

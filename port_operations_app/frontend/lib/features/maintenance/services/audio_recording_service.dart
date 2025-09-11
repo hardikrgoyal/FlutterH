@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audio_waveforms/audio_waveforms.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:dio/dio.dart';
 
 class AudioRecordingService {
   RecorderController? _recorderController;
@@ -110,21 +111,50 @@ class AudioRecordingService {
     }
   }
 
-  /// Play audio file
+  /// Play audio file (local or remote URL)
   Future<void> playAudio(String audioPath) async {
     try {
       if (_playerController == null) {
         await initialize();
       }
       
+      String localPath = audioPath;
+      
+      // If it's a URL, download the file first
+      if (audioPath.startsWith('http')) {
+        localPath = await _downloadAudioFile(audioPath);
+      }
+      
       await _playerController!.preparePlayer(
-        path: audioPath,
+        path: localPath,
       );
       await _playerController!.startPlayer();
       _isPlaying = true;
     } catch (e) {
       print('Error playing audio: $e');
       throw Exception('Failed to play audio: $e');
+    }
+  }
+
+  /// Download audio file from URL for playback
+  Future<String> _downloadAudioFile(String url) async {
+    try {
+      final dio = Dio();
+      final directory = await getApplicationDocumentsDirectory();
+      final audioDir = Directory('${directory.path}/temp_audio');
+      
+      if (!await audioDir.exists()) {
+        await audioDir.create(recursive: true);
+      }
+      
+      final fileName = 'temp_audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      final filePath = '${audioDir.path}/$fileName';
+      
+      await dio.download(url, filePath);
+      return filePath;
+    } catch (e) {
+      print('Error downloading audio file: $e');
+      throw Exception('Failed to download audio file: $e');
     }
   }
 
