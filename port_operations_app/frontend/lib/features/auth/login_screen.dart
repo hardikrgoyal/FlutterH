@@ -252,7 +252,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(width: 8),
                                  Text(
-                   'Version: 1.3.1 (Permission Fix)',
+                   'Version: 1.4.0 (Simple Record)',
                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
                      color: Colors.grey[600],
                      fontFamily: 'monospace',
