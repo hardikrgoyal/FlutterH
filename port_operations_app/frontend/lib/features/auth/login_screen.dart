@@ -231,6 +231,38 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
           ),
+          
+          const SizedBox(height: 24),
+          
+          // Version Number
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.withOpacity(0.3)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  size: 16,
+                  color: Colors.grey[600],
+                ),
+                const SizedBox(width: 8),
+                                 Text(
+                   'Version: 1.3.0 (Audio Fix Build)',
+                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                     color: Colors.grey[600],
+                     fontFamily: 'monospace',
+                     fontSize: 12,
+                     fontWeight: FontWeight.bold,
+                   ),
+                 ),
+              ],
+            ),
+          ),
         ],
       ),
     );

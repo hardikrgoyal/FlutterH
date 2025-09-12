@@ -50,8 +50,19 @@ class AudioRecordingService {
   Future<bool> requestPermission() async {
     try {
       if (kIsWeb) {
-        // For web, flutter_sound handles permission automatically
-        return true;
+        // For web, we need to ensure the recorder is open to trigger browser permission
+        if (_recorder == null) {
+          _recorder = FlutterSoundRecorder();
+        }
+        
+        try {
+          await _recorder!.openRecorder();
+          print('Web recorder opened - permission should be granted');
+          return true;
+        } catch (e) {
+          print('Web permission error: $e');
+          return false;
+        }
       } else {
         // Mobile permission handling
         final status = await Permission.microphone.request();
