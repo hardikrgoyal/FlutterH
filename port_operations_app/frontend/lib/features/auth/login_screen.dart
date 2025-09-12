@@ -252,7 +252,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(width: 8),
                                  Text(
-                   'Version: 1.3.0 (Audio Fix Build)',
+                   'Version: 1.3.1 (Permission Fix)',
                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
                      color: Colors.grey[600],
                      fontFamily: 'monospace',

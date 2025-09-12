@@ -50,23 +50,16 @@ class AudioRecordingService {
   Future<bool> requestPermission() async {
     try {
       if (kIsWeb) {
-        // For web, we need to ensure the recorder is open to trigger browser permission
-        if (_recorder == null) {
-          _recorder = FlutterSoundRecorder();
-        }
-        
-        try {
-          await _recorder!.openRecorder();
-          print('Web recorder opened - permission should be granted');
-          return true;
-        } catch (e) {
-          print('Web permission error: $e');
-          return false;
-        }
+        // For web, flutter_sound will handle permission when we try to record
+        // We don't need to explicitly request permission here
+        print('Web platform - permission will be requested during recording');
+        return true;
       } else {
         // Mobile permission handling
         final status = await Permission.microphone.request();
-        return status == PermissionStatus.granted;
+        final granted = status == PermissionStatus.granted;
+        print('Mobile permission status: $status, granted: $granted');
+        return granted;
       }
     } catch (e) {
       print('Error requesting microphone permission: $e');
@@ -91,12 +84,6 @@ class AudioRecordingService {
         print('Recorder already open or error opening: $e');
       }
 
-      // Check permission
-      final hasPermission = await requestPermission();
-      if (!hasPermission) {
-        throw Exception('Microphone permission denied');
-      }
-
       // Generate file path
       if (kIsWeb) {
         // For web, use a temporary name
@@ -108,7 +95,15 @@ class AudioRecordingService {
         _currentRecordingPath = '${tempDir.path}/$fileName';
       }
 
-      // Start recording
+      // For mobile, check permission first
+      if (!kIsWeb) {
+        final hasPermission = await requestPermission();
+        if (!hasPermission) {
+          throw Exception('Microphone permission denied. Please enable microphone access in your device settings.');
+        }
+      }
+
+      // Start recording - for web, this will trigger the browser permission dialog
       await _recorder!.startRecorder(
         toFile: _currentRecordingPath,
         codec: Codec.aacADTS, // Good cross-platform codec
@@ -120,7 +115,18 @@ class AudioRecordingService {
     } catch (e) {
       print('Error starting recording: $e');
       _isRecording = false;
-      throw Exception('Failed to start recording: $e');
+      
+      // Provide more specific error messages
+      String errorMessage = 'Failed to start recording';
+      if (e.toString().contains('permission') || e.toString().contains('Permission')) {
+        errorMessage = 'Microphone permission denied. Please allow microphone access when prompted by your browser.';
+      } else if (e.toString().contains('NotAllowedError')) {
+        errorMessage = 'Microphone access blocked. Please check your browser settings and allow microphone access for this site.';
+      } else if (e.toString().contains('NotFoundError')) {
+        errorMessage = 'No microphone found. Please check that your microphone is connected and working.';
+      }
+      
+      throw Exception(errorMessage);
     }
   }
 
