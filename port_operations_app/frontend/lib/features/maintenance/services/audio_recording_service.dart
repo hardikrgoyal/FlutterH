@@ -28,11 +28,12 @@ class AudioRecordingService {
   /// Initialize the service
   Future<void> initialize() async {
     try {
+      // Initialize recorder and player objects
       _recorder = FlutterSoundRecorder();
       _player = FlutterSoundPlayer();
       
-      await _recorder!.openRecorder();
-      await _player!.openPlayer();
+      // Don't open them here - we'll open them when needed
+      // This prevents issues with multiple opens
       
       if (!kIsWeb) {
         _playerController = PlayerController();
@@ -65,8 +66,18 @@ class AudioRecordingService {
   /// Start recording audio
   Future<bool> startRecording() async {
     try {
+      // Always ensure recorder is properly initialized
       if (_recorder == null) {
-        await initialize();
+        _recorder = FlutterSoundRecorder();
+      }
+      
+      // Always try to open the recorder before recording
+      try {
+        await _recorder!.openRecorder();
+        print('Recorder opened successfully');
+      } catch (e) {
+        // If already open, this will throw an error, which is fine
+        print('Recorder already open or error opening: $e');
       }
 
       // Check permission
@@ -161,7 +172,19 @@ class AudioRecordingService {
   /// Play audio on web platform
   Future<void> _playWebAudio(String audioPath) async {
     try {
-      if (_player == null) return;
+      // Ensure player is initialized
+      if (_player == null) {
+        _player = FlutterSoundPlayer();
+      }
+      
+      // Always try to open the player before playing
+      try {
+        await _player!.openPlayer();
+        print('Player opened successfully');
+      } catch (e) {
+        // If already open, this will throw an error, which is fine
+        print('Player already open or error opening: $e');
+      }
       
       _isPlaying = true;
       
@@ -184,32 +207,43 @@ class AudioRecordingService {
   /// Play audio on mobile platform
   Future<void> _playMobileAudio(String audioPath) async {
     try {
-      // Try using flutter_sound first
-      if (_player != null) {
-        _isPlaying = true;
-        
-        // Handle both local files and remote URLs
-        String playPath = audioPath;
-        if (audioPath.startsWith('/')) {
-          // Local file path
-          playPath = audioPath;
-        } else if (audioPath.contains('maintenance_audio')) {
-          // Backend URL - ensure it's a complete URL
-          if (!audioPath.startsWith('http')) {
-            playPath = 'http://127.0.0.1:8000/media/$audioPath';
-          }
-        }
-        
-        await _player!.startPlayer(
-          fromURI: playPath,
-          whenFinished: () {
-            _isPlaying = false;
-          },
-        );
-        
-        print('Playing mobile audio with flutter_sound: $playPath');
-        return;
+      // Ensure player is initialized
+      if (_player == null) {
+        _player = FlutterSoundPlayer();
       }
+      
+      // Always try to open the player before playing
+      try {
+        await _player!.openPlayer();
+        print('Player opened successfully');
+      } catch (e) {
+        // If already open, this will throw an error, which is fine
+        print('Player already open or error opening: $e');
+      }
+      
+      _isPlaying = true;
+      
+      // Handle both local files and remote URLs
+      String playPath = audioPath;
+      if (audioPath.startsWith('/')) {
+        // Local file path
+        playPath = audioPath;
+      } else if (audioPath.contains('maintenance_audio')) {
+        // Backend URL - ensure it's a complete URL
+        if (!audioPath.startsWith('http')) {
+          playPath = 'http://127.0.0.1:8000/media/$audioPath';
+        }
+      }
+      
+      await _player!.startPlayer(
+        fromURI: playPath,
+        whenFinished: () {
+          _isPlaying = false;
+        },
+      );
+      
+      print('Playing mobile audio with flutter_sound: $playPath');
+      return;
       
       // Fallback to audio_waveforms for local files
       if (_playerController != null && !audioPath.startsWith('http')) {
