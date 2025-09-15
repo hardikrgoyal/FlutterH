@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class AppConstants {
   // API Configuration
   // Environment detection - check if running in web release mode
@@ -21,7 +23,17 @@ class AppConstants {
   
   // Dynamic base URL selection
   static String get baseUrl {
-    return kIsProduction ? productionBaseUrl : devBaseUrl;
+    if (kIsProduction) {
+      return productionBaseUrl;
+    }
+    
+    // For development, use appropriate URL based on platform
+    // Web needs localhost, mobile emulator needs 10.0.2.2
+    if (kIsWeb) {
+      return localBaseUrl; // Use localhost for web
+    } else {
+      return devBaseUrl; // Use 10.0.2.2 for mobile
+    }
   }
   
   static String get authBaseUrl => '$baseUrl/auth';

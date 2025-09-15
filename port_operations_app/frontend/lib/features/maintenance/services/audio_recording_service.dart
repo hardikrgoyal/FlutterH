@@ -36,8 +36,17 @@ class AudioRecordingService {
   Future<bool> requestPermission() async {
     try {
       if (kIsWeb) {
-        // Web handles permissions automatically
-        return true;
+        // For web, we need to check if the recorder has permission
+        // The browser will prompt for permission when we start recording
+        try {
+          final hasPermission = await _recorder.hasPermission();
+          print('Web microphone permission status: $hasPermission');
+          return hasPermission;
+        } catch (e) {
+          print('Error checking web microphone permission: $e');
+          // Return true to let the browser handle permission prompt
+          return true;
+        }
       } else {
         final status = await Permission.microphone.request();
         return status == PermissionStatus.granted;
@@ -50,12 +59,10 @@ class AudioRecordingService {
 
   Future<bool> startRecording() async {
     try {
-      // Check permission for mobile
-      if (!kIsWeb) {
-        final hasPermission = await requestPermission();
-        if (!hasPermission) {
-          throw Exception('Microphone permission denied');
-        }
+      // Check permission for both web and mobile
+      final hasPermission = await requestPermission();
+      if (!hasPermission && !kIsWeb) {
+        throw Exception('Microphone permission denied');
       }
 
       // Generate file path
@@ -67,13 +74,24 @@ class AudioRecordingService {
         _currentRecordingPath = '${tempDir.path}/$fileName';
       }
 
-      // Start recording
-      await _recorder.start(
-        const RecordConfig(
-          encoder: AudioEncoder.aacLc,
-        ),
-        path: _currentRecordingPath!,
-      );
+      // Start recording with platform-specific configuration
+      if (kIsWeb) {
+        await _recorder.start(
+          const RecordConfig(
+            encoder: AudioEncoder.wav,
+            sampleRate: 44100,
+            bitRate: 128000,
+          ),
+          path: _currentRecordingPath!,
+        );
+      } else {
+        await _recorder.start(
+          const RecordConfig(
+            encoder: AudioEncoder.aacLc,
+          ),
+          path: _currentRecordingPath!,
+        );
+      }
       
       _isRecording = true;
       print('Started recording: $_currentRecordingPath');
@@ -81,7 +99,14 @@ class AudioRecordingService {
     } catch (e) {
       print('Error starting recording: $e');
       _isRecording = false;
-      throw Exception('Failed to start recording. Please check microphone permissions.');
+      
+      if (kIsWeb && e.toString().contains('Permission')) {
+        throw Exception('Microphone permission denied by browser. Please allow microphone access and try again.');
+      } else if (kIsWeb) {
+        throw Exception('Recording failed on web. Please ensure you\'re using HTTPS and allow microphone access.');
+      } else {
+        throw Exception('Failed to start recording. Please check microphone permissions.');
+      }
     }
   }
 
