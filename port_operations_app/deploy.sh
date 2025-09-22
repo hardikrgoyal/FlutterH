@@ -230,21 +230,61 @@ sudo systemctl start port-operations
 sudo systemctl enable nginx
 sudo systemctl restart nginx
 
-# Install Certbot for SSL (skip for now to get basic setup working)
+# Install Certbot for SSL
 echo -e "${YELLOW}🔒 Installing Certbot for SSL...${NC}"
 sudo snap install core; sudo snap refresh core
 sudo snap install --classic certbot
 sudo ln -sf /snap/bin/certbot /usr/bin/certbot
 
-echo -e "${GREEN}✅ Basic deployment completed successfully!${NC}"
-echo -e "${GREEN}🌐 Your app should now be available at: http://$DOMAIN${NC}"
-echo -e "${GREEN}🔧 Django admin: http://$DOMAIN/admin${NC}"
-echo -e "${GREEN}📱 API endpoints: http://$DOMAIN/api${NC}"
-echo ""
-echo -e "${YELLOW}📋 Next steps:${NC}"
-echo -e "  1. Test the app at http://$DOMAIN"
-echo -e "  2. If working, run: sudo certbot --nginx -d $DOMAIN"
-echo -e "  3. Update Nginx config to redirect HTTP to HTTPS"
+# Wait a moment for services to be ready
+sleep 5
+
+# Check if the site is responding before setting up SSL
+echo -e "${YELLOW}🔍 Checking if site is accessible...${NC}"
+if curl -s --max-time 10 "http://$DOMAIN" > /dev/null; then
+    echo -e "${GREEN}✅ Site is accessible, setting up SSL certificate...${NC}"
+    
+    # Obtain SSL certificate automatically
+    sudo certbot --nginx -d $DOMAIN --non-interactive --agree-tos --email admin@globalseatrans.com --redirect
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✅ SSL certificate successfully installed!${NC}"
+        
+        # Update Nginx config to ensure proper HTTPS headers
+        sudo tee $NGINX_AVAILABLE/port-operations-https-headers > /dev/null <<EOF
+# Additional HTTPS security headers
+add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-Frame-Options "DENY" always;
+add_header X-XSS-Protection "1; mode=block" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+EOF
+        
+        # Include the headers in the main config
+        sed -i '/server_name/a\    include /etc/nginx/sites-available/port-operations-https-headers;' $NGINX_AVAILABLE/port-operations
+        
+        sudo systemctl reload nginx
+        
+        echo -e "${GREEN}✅ HTTPS deployment completed successfully!${NC}"
+        echo -e "${GREEN}🌐 Your app is now available at: https://$DOMAIN${NC}"
+        echo -e "${GREEN}🔧 Django admin: https://$DOMAIN/admin${NC}"
+        echo -e "${GREEN}📱 API endpoints: https://$DOMAIN/api${NC}"
+    else
+        echo -e "${YELLOW}⚠️ SSL certificate setup failed. Site is available at: http://$DOMAIN${NC}"
+        echo -e "${YELLOW}🔧 You can manually run: sudo certbot --nginx -d $DOMAIN${NC}"
+    fi
+else
+    echo -e "${YELLOW}⚠️ Site not yet accessible, skipping SSL setup for now${NC}"
+    echo -e "${GREEN}✅ Basic deployment completed successfully!${NC}"
+    echo -e "${GREEN}🌐 Your app should now be available at: http://$DOMAIN${NC}"
+    echo -e "${GREEN}🔧 Django admin: http://$DOMAIN/admin${NC}"
+    echo -e "${GREEN}📱 API endpoints: http://$DOMAIN/api${NC}"
+    echo ""
+    echo -e "${YELLOW}📋 Next steps:${NC}"
+    echo -e "  1. Wait a few minutes for DNS propagation"
+    echo -e "  2. Test the app at http://$DOMAIN"
+    echo -e "  3. If working, run: sudo certbot --nginx -d $DOMAIN"
+fi
 echo ""
 echo -e "${YELLOW}📋 Useful commands:${NC}"
 echo -e "  View backend logs: sudo journalctl -u port-operations -f"

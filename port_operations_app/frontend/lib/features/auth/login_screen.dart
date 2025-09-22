@@ -252,7 +252,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(width: 8),
                                                  Text(
-                  'Version: 1.6.0 (Production Ready)',
+                  'Version: 1.7.0 (Production Ready)',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Colors.grey[600],
                     fontFamily: 'monospace',
