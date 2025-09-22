@@ -456,7 +456,7 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
                       final bytes = await _blobToBytes(blob);
                       final fileName = 'recording_${DateTime.now().millisecondsSinceEpoch}.wav';
                       setState(() {
-                        _audioFile = XFile.fromData(bytes, name: fileName, mimeType: 'audio/wav');
+                        _audioFile = XFile.fromData(bytes, name: fileName, mimeType: 'audio/webm');
                         _webAudioBlobUrl = audioPath;
                       });
                     } catch (e) {
