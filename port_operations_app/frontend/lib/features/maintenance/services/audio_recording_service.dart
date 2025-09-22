@@ -7,6 +7,7 @@ import 'package:audio_waveforms/audio_waveforms.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
+import 'dart:html' as html if (dart.library.html) 'dart:html';
 
 class AudioRecordingService {
   final AudioRecorder _recorder = AudioRecorder();
@@ -36,8 +37,7 @@ class AudioRecordingService {
   Future<bool> requestPermission() async {
     try {
       if (kIsWeb) {
-        // For web, we need to check if the recorder has permission
-        // The browser will prompt for permission when we start recording
+        // Use record package permission check
         try {
           final hasPermission = await _recorder.hasPermission();
           print('Web microphone permission status: $hasPermission');
@@ -76,14 +76,27 @@ class AudioRecordingService {
 
       // Start recording with platform-specific configuration
       if (kIsWeb) {
-        await _recorder.start(
-          const RecordConfig(
-            encoder: AudioEncoder.wav,
-            sampleRate: 44100,
-            bitRate: 128000,
-          ),
-          path: _currentRecordingPath!,
-        );
+        // Try different web recording configurations
+        try {
+          print('Attempting web recording with WAV format...');
+          await _recorder.start(
+            const RecordConfig(
+              encoder: AudioEncoder.wav,
+              sampleRate: 44100,
+              bitRate: 128000,
+            ),
+            path: _currentRecordingPath!,
+          );
+        } catch (e) {
+          print('WAV recording failed, trying PCM16: $e');
+          await _recorder.start(
+            const RecordConfig(
+              encoder: AudioEncoder.pcm16bits,
+              sampleRate: 44100,
+            ),
+            path: _currentRecordingPath!,
+          );
+        }
       } else {
         await _recorder.start(
           const RecordConfig(
@@ -100,10 +113,8 @@ class AudioRecordingService {
       print('Error starting recording: $e');
       _isRecording = false;
       
-      if (kIsWeb && e.toString().contains('Permission')) {
-        throw Exception('Microphone permission denied by browser. Please allow microphone access and try again.');
-      } else if (kIsWeb) {
-        throw Exception('Recording failed on web. Please ensure you\'re using HTTPS and allow microphone access.');
+      if (kIsWeb) {
+        throw Exception(_getWebPermissionErrorMessage(e.toString()));
       } else {
         throw Exception('Failed to start recording. Please check microphone permissions.');
       }
@@ -119,6 +130,12 @@ class AudioRecordingService {
       
       if (path != null) {
         _currentRecordingPath = path;
+        
+        // Debug: Check if we actually have audio data on web
+        if (kIsWeb && path.startsWith('blob:')) {
+          print('Web recording blob URL: $path');
+          await _debugWebBlob(path);
+        }
       }
       
       print('Stopped recording: $path');
@@ -127,6 +144,25 @@ class AudioRecordingService {
       print('Error stopping recording: $e');
       _isRecording = false;
       throw Exception('Failed to stop recording: $e');
+    }
+  }
+  
+  Future<void> _debugWebBlob(String blobUrl) async {
+    if (kIsWeb) {
+      try {
+        final response = await html.HttpRequest.request(blobUrl, responseType: 'blob');
+        final blob = response.response as html.Blob;
+        print('Blob size: ${blob.size} bytes');
+        print('Blob type: ${blob.type}');
+        
+        if (blob.size == 0) {
+          print('⚠️ WARNING: Blob is empty - no audio data recorded!');
+        } else {
+          print('✅ Blob contains ${blob.size} bytes of audio data');
+        }
+      } catch (e) {
+        print('Error debugging blob: $e');
+      }
     }
   }
 
@@ -169,15 +205,77 @@ class AudioRecordingService {
   Future<void> _playWebAudio(String audioPath) async {
     try {
       _isPlaying = true;
-      
-      // For web, we'll use a simple approach
-      // This is a basic implementation - in production you might want to use html audio
       print('Playing web audio: $audioPath');
       
-      // Simulate playback duration for now
-      Timer(const Duration(seconds: 3), () {
-        _isPlaying = false;
-      });
+      if (kIsWeb) {
+        // Debug: Check if blob still exists and has data
+        if (audioPath.startsWith('blob:')) {
+          await _debugWebBlob(audioPath);
+        }
+        
+        // Use HTML5 Audio API for web playback
+        final audio = html.AudioElement();
+        audio.src = audioPath;
+        audio.preload = 'auto';
+        audio.volume = 1.0; // Set volume to maximum
+        audio.controls = true; // Add controls for debugging
+        
+        // Add event listeners
+        audio.onEnded.listen((_) {
+          _isPlaying = false;
+          print('Web audio playback completed');
+        });
+        
+        audio.onError.listen((event) {
+          _isPlaying = false;
+          print('Web audio playback error: $event');
+        });
+        
+        // Add load event listener to check duration
+        audio.addEventListener('loadedmetadata', (event) {
+          print('Audio metadata loaded, duration: ${audio.duration} seconds');
+          print('Audio volume: ${audio.volume}');
+          print('Audio muted: ${audio.muted}');
+        });
+        
+        audio.addEventListener('canplay', (event) {
+          print('Audio can start playing');
+        });
+        
+        audio.addEventListener('volumechange', (event) {
+          print('Audio volume changed to: ${audio.volume}');
+        });
+        
+        // Temporarily add audio element to DOM for debugging
+        audio.style.position = 'fixed';
+        audio.style.top = '10px';
+        audio.style.right = '10px';
+        audio.style.zIndex = '9999';
+        html.document.body!.append(audio);
+        
+        // Remove after playback completes
+        audio.onEnded.listen((_) {
+          Timer(const Duration(seconds: 1), () {
+            audio.remove();
+          });
+        });
+        
+        // Start playback
+        try {
+          await audio.play();
+          print('Audio play() called successfully');
+        } catch (e) {
+          print('Error calling audio.play(): $e');
+          audio.remove(); // Remove on error too
+          _isPlaying = false;
+          rethrow;
+        }
+      } else {
+        // Fallback for non-web platforms
+        Timer(const Duration(seconds: 3), () {
+          _isPlaying = false;
+        });
+      }
       
     } catch (e) {
       _isPlaying = false;
@@ -260,6 +358,20 @@ class AudioRecordingService {
     final minutes = twoDigits(duration.inMinutes.remainder(60));
     final seconds = twoDigits(duration.inSeconds.remainder(60));
     return '$minutes:$seconds';
+  }
+
+  String _getWebPermissionErrorMessage(String error) {
+    if (error.contains('AbortError')) {
+      return 'Microphone permission was cancelled. Please click the microphone icon in your browser\'s address bar and allow access, then try again.';
+    } else if (error.contains('NotAllowedError')) {
+      return 'Microphone access was denied. Please check your browser settings:\n1. Click the lock/microphone icon in the address bar\n2. Set microphone to "Allow"\n3. Refresh the page and try again.';
+    } else if (error.contains('NotFoundError')) {
+      return 'No microphone found. Please ensure a microphone is connected and try again.';
+    } else if (error.contains('NotReadableError')) {
+      return 'Microphone is already in use by another application. Please close other apps using the microphone and try again.';
+    } else {
+      return 'Recording failed on web. Please ensure you\'re using HTTPS and allow microphone access.';
+    }
   }
 
   Future<void> dispose() async {

@@ -1,6 +1,9 @@
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:html' as html if (dart.library.html) 'dart:html';
 import '../../../core/constants/app_colors.dart';
 import '../../../shared/models/user_model.dart';
 import '../../../shared/widgets/vehicle_search_dropdown.dart';
@@ -20,6 +23,13 @@ class CreateWorkOrderScreen extends ConsumerStatefulWidget {
 }
 
 class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
+  
+  Future<Uint8List> _blobToBytes(html.Blob blob) async {
+    final reader = html.FileReader();
+    reader.readAsArrayBuffer(blob);
+    await reader.onLoad.first;
+    return reader.result as Uint8List;
+  }
   final _formKey = GlobalKey<FormState>();
   
   // Form controllers
@@ -47,6 +57,9 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
     'Electrical',
     'Other'
   ];
+  
+  // Web-only: keep the blob URL for reliable playback in browser
+  String? _webAudioBlobUrl;
 
   @override
   void initState() {
@@ -409,7 +422,11 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
                     IconButton(
                       onPressed: () async {
                         final audioService = ref.read(audioRecordingServiceProvider);
-                        await audioService.playAudio(_audioFile!.path);
+                        if (kIsWeb && _webAudioBlobUrl != null) {
+                          await audioService.playAudio(_webAudioBlobUrl!);
+                        } else {
+                          await audioService.playAudio(_audioFile!.path);
+                        }
                       },
                       icon: const Icon(Icons.play_arrow, color: Colors.blue),
                       tooltip: 'Play audio',
@@ -418,6 +435,7 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
                       onPressed: () {
                         setState(() {
                           _audioFile = null;
+                          _webAudioBlobUrl = null;
                         });
                       },
                       icon: const Icon(Icons.delete, color: Colors.red),
@@ -429,14 +447,35 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
             ] else ...[
               AudioRecordingWidget(
                 initialAudioPath: _audioFile?.path,
-                onAudioRecorded: (audioPath) {
-                  setState(() {
-                    _audioFile = XFile(audioPath);
-                  });
+                onAudioRecorded: (audioPath) async {
+                  if (kIsWeb && audioPath.startsWith('blob:')) {
+                    // For web, convert blob to XFile and store blob URL for playback
+                    try {
+                      final response = await html.HttpRequest.request(audioPath, responseType: 'blob');
+                      final blob = response.response as html.Blob;
+                      final bytes = await _blobToBytes(blob);
+                      final fileName = 'recording_${DateTime.now().millisecondsSinceEpoch}.wav';
+                      setState(() {
+                        _audioFile = XFile.fromData(bytes, name: fileName, mimeType: 'audio/wav');
+                        _webAudioBlobUrl = audioPath;
+                      });
+                    } catch (e) {
+                      print('Error converting blob to file: $e');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error processing audio recording: $e')),
+                      );
+                    }
+                  } else {
+                    setState(() {
+                      _audioFile = XFile(audioPath);
+                      _webAudioBlobUrl = null;
+                    });
+                  }
                 },
                 onCancel: () {
                   setState(() {
                     _audioFile = null;
+                    _webAudioBlobUrl = null;
                   });
                 },
               ),
