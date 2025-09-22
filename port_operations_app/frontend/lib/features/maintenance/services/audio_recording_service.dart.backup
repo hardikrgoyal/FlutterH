@@ -17,24 +17,14 @@ class AudioRecordingService {
   bool _isRecording = false;
   bool _isPlaying = false;
   String? _currentRecordingPath;
-  bool _isProduction = false;
 
   bool get isRecording => _isRecording;
   bool get isPlaying => _isPlaying;
   String? get currentRecordingPath => _currentRecordingPath;
   bool get isCurrentlyPlaying => _isPlaying;
-  bool get isProductionEnvironment => _isProduction;
 
   Future<void> initialize() async {
     try {
-      // Check if we're in production by looking for production indicators
-      _isProduction = _detectProductionEnvironment();
-      
-      if (kIsWeb && _isProduction) {
-        print('Production web environment detected - audio recording disabled');
-        return; // Don't initialize in production web
-      }
-      
       _recorder = FlutterSoundRecorder();
       _audioPlayer = AudioPlayer();
       
@@ -47,35 +37,15 @@ class AudioRecordingService {
       print('Audio service initialized successfully');
     } catch (e) {
       print('Error initializing audio service: $e');
-      if (kIsWeb) {
-        print('Web audio recording not available in this environment');
-      }
       throw Exception('Failed to initialize audio service: $e');
     }
   }
 
-  bool _detectProductionEnvironment() {
-    // Check for common production indicators
-    if (kIsWeb) {
-      final currentUrl = Uri.base.toString().toLowerCase();
-      
-      // Check for production domains or localhost variations
-      return !currentUrl.contains('localhost') && 
-             !currentUrl.contains('127.0.0.1') && 
-             !currentUrl.contains('0.0.0.0') &&
-             !currentUrl.contains('10.0.2.2'); // Android emulator
-    }
-    return false;
-  }
-
   Future<bool> requestPermission() async {
     try {
-      if (kIsWeb && _isProduction) {
-        return false; // Audio not available in production
-      }
-      
       if (kIsWeb) {
-        return true; // For web, flutter_sound handles permissions internally
+        // For web, flutter_sound handles permissions internally
+        return true;
       } else {
         final status = await Permission.microphone.request();
         return status == PermissionStatus.granted;
@@ -88,10 +58,6 @@ class AudioRecordingService {
 
   Future<bool> startRecording() async {
     try {
-      if (kIsWeb && _isProduction) {
-        throw Exception('Audio recording is not available in production web environment. Please use a mobile device or development environment.');
-      }
-
       // Check permission for mobile
       if (!kIsWeb) {
         final hasPermission = await requestPermission();
@@ -131,9 +97,7 @@ class AudioRecordingService {
       print('Error starting recording: $e');
       _isRecording = false;
       
-      if (kIsWeb && _isProduction) {
-        throw Exception('Audio recording is not available in production web environment. Please use a mobile device or development environment.');
-      } else if (kIsWeb) {
+      if (kIsWeb) {
         throw Exception('Failed to start recording on web. Please ensure microphone access is allowed.');
       } else {
         throw Exception('Failed to start recording. Please check microphone permissions.');
@@ -145,16 +109,17 @@ class AudioRecordingService {
     try {
       if (!_isRecording) return null;
       
-      if (kIsWeb && _isProduction) {
-        throw Exception('Audio recording is not available in production web environment.');
-      }
-      
       final path = await _recorder!.stopRecorder();
       _isRecording = false;
       
       if (path != null) {
         _currentRecordingPath = path;
         print('Stopped recording: $path');
+        
+        // For web, check if we have valid audio data
+        if (kIsWeb) {
+          await _debugWebRecording(path);
+        }
       }
       
       return path ?? _currentRecordingPath;
@@ -164,16 +129,25 @@ class AudioRecordingService {
       throw Exception('Failed to stop recording: $e');
     }
   }
+  
+  Future<void> _debugWebRecording(String path) async {
+    if (kIsWeb) {
+      try {
+        // For web recordings, flutter_sound creates a blob URL
+        if (path.startsWith('blob:') || path.startsWith('data:')) {
+          print('✅ Web recording created: $path');
+        } else {
+          print('⚠️ Unexpected web recording path format: $path');
+        }
+      } catch (e) {
+        print('Error debugging web recording: $e');
+      }
+    }
+  }
 
   Future<void> cancelRecording() async {
     try {
       if (!_isRecording) return;
-      
-      if (kIsWeb && _isProduction) {
-        _isRecording = false;
-        _currentRecordingPath = null;
-        return;
-      }
       
       await _recorder!.stopRecorder();
       
@@ -195,10 +169,6 @@ class AudioRecordingService {
 
   Future<void> playAudio(String audioPath) async {
     try {
-      if (kIsWeb && _isProduction) {
-        throw Exception('Audio playback is not available in production web environment.');
-      }
-      
       if (kIsWeb) {
         await _playWebAudio(audioPath);
       } else {
@@ -274,11 +244,6 @@ class AudioRecordingService {
     try {
       if (!_isPlaying) return;
       
-      if (kIsWeb && _isProduction) {
-        _isPlaying = false;
-        return;
-      }
-      
       if (kIsWeb) {
         await _audioPlayer?.stop();
       } else {
@@ -295,11 +260,6 @@ class AudioRecordingService {
   Future<void> pauseAudio() async {
     try {
       if (!_isPlaying) return;
-      
-      if (kIsWeb && _isProduction) {
-        _isPlaying = false;
-        return;
-      }
       
       if (kIsWeb) {
         await _audioPlayer?.pause();
@@ -485,8 +445,8 @@ class _AudioRecordingWidgetState extends ConsumerState<AudioRecordingWidget>
       _errorMessage = message;
     });
     
-    // Clear error after 5 seconds
-    Timer(const Duration(seconds: 5), () {
+    // Clear error after 3 seconds
+    Timer(const Duration(seconds: 3), () {
       if (mounted) {
         setState(() {
           _errorMessage = null;
@@ -503,15 +463,6 @@ class _AudioRecordingWidgetState extends ConsumerState<AudioRecordingWidget>
 
     try {
       final audioService = ref.read(audioRecordingServiceProvider);
-      
-      // Check if we're in production environment
-      if (audioService.isProductionEnvironment) {
-        _showError('Audio recording is not available in production web environment. Please use a mobile device or development environment.');
-        setState(() {
-          _isLoading = false;
-        });
-        return;
-      }
       
       final success = await audioService.startRecording();
       
@@ -719,88 +670,48 @@ class _AudioRecordingWidgetState extends ConsumerState<AudioRecordingWidget>
           ],
           
           if (!audioState.isRecording && audioState.audioPath == null) ...[
-            // Initial state - Check if we're in production environment
-            if (audioService.isProductionEnvironment) ...[
-              // Production environment - show disabled state
-              Container(
-                padding: const EdgeInsets.all(16),
+            // Initial state - WhatsApp-like mic button
+            GestureDetector(
+              onTap: _isLoading ? null : _startRecording,
+              child: Container(
+                width: 56,
+                height: 56,
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
-                ),
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.mic_off,
-                      color: Colors.orange,
-                      size: 48,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Audio Recording Not Available',
-                      style: TextStyle(
-                        color: Colors.orange[800],
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Audio recording is not supported in production web environment. Please use a mobile device or development environment.',
-                      style: TextStyle(
-                        color: Colors.orange[700],
-                        fontSize: 12,
-                      ),
-                      textAlign: TextAlign.center,
+                  color: _isLoading ? Colors.grey[300] : const Color(0xFF25D366), // WhatsApp green
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
-              ),
-            ] else ...[
-              // Development/Normal environment - WhatsApp-like mic button
-              GestureDetector(
-                onTap: _isLoading ? null : _startRecording,
-                child: Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: _isLoading ? Colors.grey[300] : const Color(0xFF25D366), // WhatsApp green
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                child: _isLoading 
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
-                    ],
-                  ),
-                  child: _isLoading 
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : const Icon(
-                        Icons.mic,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                ),
+                    )
+                  : const Icon(
+                      Icons.mic,
+                      color: Colors.white,
+                      size: 28,
+                    ),
               ),
-              const SizedBox(height: 12),
-              Text(
-                'Tap to record voice message',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Tap to record voice message',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
               ),
-            ],
+            ),
           ] else if (audioState.isRecording) ...[
             // Recording state - Classic recording interface
             Column(
@@ -1109,4 +1020,4 @@ class _AudioRecordingWidgetState extends ConsumerState<AudioRecordingWidget>
       ),
     );
   }
-}
+} 
