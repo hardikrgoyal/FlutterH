@@ -6,11 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audio_waveforms/audio_waveforms.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:just_audio/just_audio.dart';
 import 'dart:html' as html if (dart.library.html) 'dart:html';
 
 class AudioRecordingService {
-  AudioPlayer? _audioPlayer;
   PlayerController? _playerController;
   
   // HTML5 MediaRecorder for web
@@ -19,6 +17,7 @@ class AudioRecordingService {
   List<html.Blob> _recordedChunks = [];
   String? _blobUrl;
   Timer? _recordingTimer;
+  html.AudioElement? _audioElement;
   
   bool _isRecording = false;
   bool _isPlaying = false;
@@ -33,10 +32,15 @@ class AudioRecordingService {
 
   Future<void> initialize() async {
     try {
-      _audioPlayer = AudioPlayer();
-      
       if (!kIsWeb) {
         _playerController = PlayerController();
+      }
+      
+      // Initialize HTML5 audio element for web playback
+      if (kIsWeb) {
+        _audioElement = html.AudioElement();
+        _audioElement!.style.display = 'none';
+        html.document.body!.append(_audioElement!);
       }
       
       print('Audio service initialized successfully');
@@ -296,29 +300,26 @@ class AudioRecordingService {
       _isPlaying = true;
       print('Playing web audio: $audioPath');
       
-      if (audioPath.startsWith('blob:')) {
-        // Use just_audio for blob URLs
-        await _audioPlayer!.setUrl(audioPath);
-        await _audioPlayer!.play();
+      if (_audioElement != null) {
+        // Use HTML5 audio element for playback
+        _audioElement!.src = audioPath;
+        _audioElement!.load();
         
-        // Listen for completion
-        _audioPlayer!.playerStateStream.listen((state) {
-          if (state.processingState == ProcessingState.completed) {
-            _isPlaying = false;
-            print('Web audio playback completed');
-          }
+        // Listen for playback events
+        _audioElement!.onEnded.listen((event) {
+          _isPlaying = false;
+          print('Web audio playback completed');
         });
+        
+        _audioElement!.onError.listen((event) {
+          _isPlaying = false;
+          print('Web audio playback error: ${event.toString()}');
+        });
+        
+        // Start playback
+        await _audioElement!.play();
       } else {
-        // For regular URLs
-        await _audioPlayer!.setUrl(audioPath);
-        await _audioPlayer!.play();
-        
-        _audioPlayer!.playerStateStream.listen((state) {
-          if (state.processingState == ProcessingState.completed) {
-            _isPlaying = false;
-            print('Web audio playback completed');
-          }
-        });
+        throw Exception('Audio element not initialized');
       }
       
     } catch (e) {
@@ -367,8 +368,9 @@ class AudioRecordingService {
     try {
       if (!_isPlaying) return;
       
-      if (kIsWeb) {
-        await _audioPlayer?.stop();
+      if (kIsWeb && _audioElement != null) {
+        _audioElement!.pause();
+        _audioElement!.currentTime = 0;
       } else {
         await _playerController?.stopPlayer();
       }
@@ -384,8 +386,8 @@ class AudioRecordingService {
     try {
       if (!_isPlaying) return;
       
-      if (kIsWeb) {
-        await _audioPlayer?.pause();
+      if (kIsWeb && _audioElement != null) {
+        _audioElement!.pause();
       } else {
         await _playerController?.pausePlayer();
       }
@@ -413,7 +415,6 @@ class AudioRecordingService {
       await cancelRecording();
       await stopAudio();
       
-      await _audioPlayer?.dispose();
       _playerController?.dispose();
       
       // Clean up web resources
@@ -423,6 +424,12 @@ class AudioRecordingService {
       if (_blobUrl != null) {
         html.Url.revokeObjectUrl(_blobUrl!);
         _blobUrl = null;
+      }
+      
+      // Remove audio element
+      if (_audioElement != null) {
+        _audioElement!.remove();
+        _audioElement = null;
       }
       
       print('Audio service disposed');
@@ -709,21 +716,39 @@ class _AudioRecordingWidgetState extends ConsumerState<AudioRecordingWidget>
       final audioService = ref.read(audioRecordingServiceProvider);
       await audioService.playAudio(audioPath);
       
-      // Monitor playback state
-      Timer.periodic(const Duration(milliseconds: 500), (timer) {
-        if (!mounted) {
-          timer.cancel();
-          return;
-        }
-        
-        final isStillPlaying = audioService.isCurrentlyPlaying;
-        if (!isStillPlaying && _isPlayingAudio) {
-          setState(() {
-            _isPlayingAudio = false;
-          });
-          timer.cancel();
-        }
-      });
+      // Monitor playback state for mobile
+      if (!kIsWeb) {
+        Timer.periodic(const Duration(milliseconds: 500), (timer) {
+          if (!mounted) {
+            timer.cancel();
+            return;
+          }
+          
+          final isStillPlaying = audioService.isCurrentlyPlaying;
+          if (!isStillPlaying && _isPlayingAudio) {
+            setState(() {
+              _isPlayingAudio = false;
+            });
+            timer.cancel();
+          }
+        });
+      } else {
+        // For web, HTML5 audio element handles its own events
+        Timer.periodic(const Duration(milliseconds: 500), (timer) {
+          if (!mounted) {
+            timer.cancel();
+            return;
+          }
+          
+          final isStillPlaying = audioService.isCurrentlyPlaying;
+          if (!isStillPlaying && _isPlayingAudio) {
+            setState(() {
+              _isPlayingAudio = false;
+            });
+            timer.cancel();
+          }
+        });
+      }
       
     } catch (e) {
       _showError(e.toString().replaceAll('Exception: ', ''));
