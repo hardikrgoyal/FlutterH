@@ -29,6 +29,7 @@ router.register(r'purchase-orders', views.PurchaseOrderViewSet)
 router.register(r'po-items', views.POItemViewSet)
 router.register(r'stock', views.StockViewSet)
 router.register(r'issue-slips', views.IssueSlipViewSet)
+router.register(r'vendor-audit-logs', views.VendorAuditLogViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

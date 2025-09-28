@@ -1,0 +1,527 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/constants/app_colors.dart';
+import '../../../../shared/widgets/app_drawer.dart';
+import '../../../auth/auth_service.dart';
+import '../../services/po_vendor_service.dart';
+import '../../services/wo_vendor_service.dart';
+import '../services/vendor_audit_service.dart';import '../../services/vendor_audit_service.dart';
+
+class VendorDetailScreen extends ConsumerStatefulWidget {
+  final dynamic vendor; // Can be POVendor or WOVendor
+  final String vendorType; // 'PO' or 'WO'
+
+  const VendorDetailScreen({
+    super.key,
+    required this.vendor,
+    required this.vendorType,
+  });
+
+  @override
+  ConsumerState<VendorDetailScreen> createState() => _VendorDetailScreenState();
+}
+
+class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
+  bool _isEditing = false;
+  bool _isLoading = false;
+  
+  // Form controllers
+  late TextEditingController _nameController;
+  late TextEditingController _contactPersonController;
+  late TextEditingController _phoneController;
+  late TextEditingController _emailController;
+  late TextEditingController _addressController;
+  bool _isActive = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeControllers();
+  }
+
+  void _initializeControllers() {
+    _nameController = TextEditingController(text: widget.vendor.name);
+    _contactPersonController = TextEditingController(text: widget.vendor.contactPerson ?? '');
+    _phoneController = TextEditingController(text: widget.vendor.phoneNumber ?? '');
+    _emailController = TextEditingController(text: widget.vendor.email ?? '');
+    _addressController = TextEditingController(text: widget.vendor.address ?? '');
+    _isActive = widget.vendor.isActive;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _contactPersonController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
+    _addressController.dispose();
+    super.dispose();
+  }
+
+  void _startEdit() {
+    setState(() {
+      _isEditing = true;
+    });
+  }
+
+  void _cancelEdit() {
+    setState(() {
+      _isEditing = false;
+      _initializeControllers(); // Reset to original values
+    });
+  }
+
+  Future<void> _saveChanges() async {
+    if (_nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vendor name is required')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final vendorData = {
+        'name': _nameController.text.trim(),
+        'contact_person': _contactPersonController.text.trim(),
+        'phone_number': _phoneController.text.trim(),
+        'email': _emailController.text.trim(),
+        'address': _addressController.text.trim(),
+        'is_active': _isActive,
+      };
+
+      if (widget.vendorType == 'PO') {
+        await ref.read(poVendorServiceProvider).updatePOVendor(widget.vendor.id, vendorData);
+      } else {
+        await ref.read(woVendorServiceProvider).updateWOVendor(widget.vendor.id, vendorData);
+      }
+
+      setState(() {
+        _isEditing = false;
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vendor updated successfully')),
+      );
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating vendor: $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final authState = ref.watch(authStateProvider);
+    final user = authState.user;
+    final isAdmin = user?.role == 'admin';
+
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('${widget.vendorType} Vendor Details'),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
+        ),
+        actions: [
+          if (isAdmin && !_isEditing)
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: _startEdit,
+            ),
+          if (_isEditing) ...[
+            IconButton(
+              icon: const Icon(Icons.save),
+              onPressed: _saveChanges,
+            ),
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: _cancelEdit,
+            ),
+          ],
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Vendor Information Card
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Vendor Information',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildInfoField('Name', _nameController, 'Enter vendor name'),
+                    const SizedBox(height: 12),
+                    _buildInfoField('Contact Person', _contactPersonController, 'Enter contact person'),
+                    const SizedBox(height: 12),
+                    _buildInfoField('Phone', _phoneController, 'Enter phone number'),
+                    const SizedBox(height: 12),
+                    _buildInfoField('Email', _emailController, 'Enter email address'),
+                    const SizedBox(height: 12),
+                    _buildInfoField('Address', _addressController, 'Enter address', maxLines: 3),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Text(
+                          'Active: ',
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                        Switch(
+                          value: _isActive,
+                          onChanged: _isEditing ? (value) {
+                            setState(() {
+                              _isActive = value;
+                            });
+                          } : null,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            
+            // Audit Trail Section (Admin Only)
+            if (isAdmin) ...[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.history, color: AppColors.primary),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Complete Audit Trail',
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'This comprehensive audit trail shows all changes made to this vendor.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildAuditLogsList(),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoField(String label, TextEditingController controller, String hint, {int maxLines = 1}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 4),
+        if (_isEditing)
+          TextFormField(
+            controller: controller,
+            decoration: InputDecoration(
+              hintText: hint,
+              border: const OutlineInputBorder(),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+            maxLines: maxLines,
+          )
+        else
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey[300]!),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              controller.text.isEmpty ? 'Not specified' : controller.text,
+              style: TextStyle(
+                color: controller.text.isEmpty ? Colors.grey[600] : null,
+                fontStyle: controller.text.isEmpty ? FontStyle.italic : null,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildAuditLogsList() {
+    final auditLogsAsync = ref.watch(vendorAuditLogsProvider('${widget.vendorType}-${widget.vendor.id}'));
+
+    return auditLogsAsync.when(
+      loading: () => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: CircularProgressIndicator(),
+        ),
+      ),
+      error: (error, stack) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              const Icon(Icons.error, color: Colors.red),
+              const SizedBox(height: 8),
+              Text(
+                'Error loading audit logs: $error',
+                style: const TextStyle(color: Colors.red),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+      data: (auditLogs) {
+        if (auditLogs.isEmpty) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'No audit history available',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: auditLogs.length,
+          itemBuilder: (context, index) {
+            final log = auditLogs[index];
+            return _buildAuditLogItem(log);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildAuditLogItem(VendorAuditLog log) {
+    IconData icon;
+    Color color;
+    
+    switch (log.action) {
+      case 'created':
+        icon = Icons.add_circle;
+        color = Colors.green;
+        break;
+      case 'updated':
+        icon = Icons.edit;
+        color = Colors.blue;
+        break;
+      case 'deleted':
+        icon = Icons.delete;
+        color = Colors.red;
+        break;
+      case 'activated':
+        icon = Icons.check_circle;
+        color = Colors.green;
+        break;
+      case 'deactivated':
+        icon = Icons.cancel;
+        color = Colors.orange;
+        break;
+      default:
+        icon = Icons.info;
+        color = Colors.grey;
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    log.action.toUpperCase(),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    log.vendorName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (log.performedByName != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      'By: ${log.performedByName}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 2),
+                  Text(
+                    _formatDateTime(log.createdAt),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey[500],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDateTime(String dateTimeString) {
+    try {
+      final dateTime = DateTime.parse(dateTimeString);
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return dateTimeString;
+    }
+
+  Widget _buildComprehensiveAuditCard(dynamic vendor) {
+    return Card(
+      elevation: 4,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.history, color: AppColors.primary),
+                const SizedBox(width: 8),
+                const Text(
+                  'Complete Audit History',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildAuditLogsList(),
+            const SizedBox(height: 8),
+            Text(
+              'This comprehensive audit trail is only visible to admin users.',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+      ),
+
+  Widget _buildAuditLogsList() {
+    final auditLogsAsync = ref.watch(vendorAuditLogsProvider('${widget.vendorType}-${widget.vendor.id}'));
+
+    return auditLogsAsync.when(
+      loading: () => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: CircularProgressIndicator(),
+        ),
+      ),
+      error: (error, stack) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              const Icon(Icons.error, color: Colors.red),
+              const SizedBox(height: 8),
+              Text(
+                'Error loading audit logs: $error',
+                style: const TextStyle(color: Colors.red),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+      data: (auditLogs) {
+        if (auditLogs.isEmpty) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'No audit history available',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: auditLogs.length,
+          itemBuilder: (context, index) {
+            final log = auditLogs[index];
+            return _buildAuditLogItem(log);
+          },
+        );
+      },
+    );
+  }
+    );
+  }
+  }

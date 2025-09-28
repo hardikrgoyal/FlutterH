@@ -1100,3 +1100,39 @@ class AuditTrail(models.Model):
 
     def __str__(self):
         return f"{self.action} {self.related_entity_type}:{self.related_entity_id} on {self.entity_type}:{self.entity_id}"
+
+class VendorAuditLog(models.Model):
+    """
+    Comprehensive audit log for vendor changes
+    """
+    ACTION_CHOICES = (
+        ('created', 'Created'),
+        ('updated', 'Updated'),
+        ('deleted', 'Deleted'),
+        ('activated', 'Activated'),
+        ('deactivated', 'Deactivated'),
+    )
+    
+    vendor_type = models.CharField(max_length=10, choices=[('PO', 'PO Vendor'), ('WO', 'WO Vendor')])
+    vendor_id = models.IntegerField()
+    vendor_name = models.CharField(max_length=100)  # Store name at time of change
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES)
+    performed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    changes = models.JSONField(default=dict, blank=True)  # Store field changes
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['vendor_type', 'vendor_id']),
+            models.Index(fields=['action']),
+            models.Index(fields=['performed_by']),
+            models.Index(fields=['created_at']),
+        ]
+        verbose_name = 'Vendor Audit Log'
+        verbose_name_plural = 'Vendor Audit Logs'
+    
+    def __str__(self):
+        return f"{self.action.title()} {self.vendor_type} Vendor: {self.vendor_name} by {self.performed_by.username if self.performed_by else 'System'}"

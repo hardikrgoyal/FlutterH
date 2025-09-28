@@ -12,9 +12,10 @@ from .models import (
     VehicleType, WorkType, PartyMaster, ContractorMaster, ServiceTypeMaster, UnitTypeMaster,
     Vehicle, VehicleDocument,
     # Maintenance system models
-    Vendor, POVendor, WOVendor, WorkOrder, PurchaseOrder, POItem, Stock, IssueSlip, WorkOrderPurchaseLink, AuditTrail
+    Vendor, POVendor, WOVendor, WorkOrder, PurchaseOrder, POItem, Stock, IssueSlip, WorkOrderPurchaseLink, AuditTrail, VendorAuditLog
 )
 from .serializers import (
+    VendorAuditLogSerializer,
     CargoOperationSerializer, RateMasterSerializer, EquipmentSerializer, EquipmentRateMasterSerializer,
     TransportDetailSerializer, LabourCostSerializer, MiscellaneousCostSerializer,
     RevenueStreamSerializer, VehicleTypeSerializer, WorkTypeSerializer, 
@@ -1076,7 +1077,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         """
         Check for duplicate PO before creation
         """
-        vendor_id = request.query_params.get('vendor_id')
+        vendor_id = request.GET.get('vendor_id')
         vehicle_id = request.query_params.get('vehicle_id')
         vehicle_other = request.query_params.get('vehicle_other')
         for_stock = request.query_params.get('for_stock') == 'true'
@@ -1277,4 +1278,57 @@ class IssueSlipViewSet(viewsets.ModelViewSet):
         
         issue_slips = IssueSlip.objects.filter(assigned_vehicle_id=vehicle_id)
         serializer = self.get_serializer(issue_slips, many=True)
+        return Response(serializer.data)
+
+class VendorAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = VendorAuditLog.objects.all()
+    """
+    ViewSet for retrieving vendor audit logs
+    """
+    serializer_class = VendorAuditLogSerializer
+    permission_classes = [IsManagerOrAdmin]  # Only managers and admins can view audit logs
+    
+    def get_queryset(self):
+        vendor_type = self.request.GET.get('vendor_type')
+        vendor_id = self.request.GET.get('vendor_id')
+        
+        queryset = VendorAuditLog.objects.all()
+        
+        if vendor_type:
+            queryset = queryset.filter(vendor_type=vendor_type)
+        
+        if vendor_id:
+            queryset = queryset.filter(vendor_id=vendor_id)
+        
+        return queryset.order_by('-created_at')
+    
+    @action(detail=False, methods=['get'])
+    def by_vendor(self, request):
+        """
+        Get audit logs for a specific vendor
+        """
+        vendor_type = request.GET.get('vendor_type')
+        vendor_id = request.GET.get('vendor_id')
+        
+        if not vendor_type or not vendor_id:
+            return Response(
+                {'error': 'vendor_type and vendor_id are required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            vendor_id = int(vendor_id)
+        except ValueError:
+            return Response(
+                {'error': 'vendor_id must be a valid integer'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        audit_logs = VendorAuditLog.objects.filter(
+            vendor_type=vendor_type,
+            vendor_id=vendor_id
+        ).order_by('-created_at')
+        
+        from .serializers import VendorAuditLogSerializer
+        serializer = VendorAuditLogSerializer(audit_logs, many=True)
         return Response(serializer.data)

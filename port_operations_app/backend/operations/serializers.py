@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import (
+    VendorAuditLog,
     CargoOperation, RateMaster, Equipment, EquipmentRateMaster, TransportDetail, 
     LabourCost, MiscellaneousCost, RevenueStream,
     VehicleType, WorkType, PartyMaster, ContractorMaster, ServiceTypeMaster, UnitTypeMaster,
@@ -557,3 +558,15 @@ class AuditTrailSerializer(serializers.ModelSerializer):
         model = AuditTrail
         fields = ['id', 'entity_type', 'entity_id', 'related_entity_type', 'related_entity_id', 'action', 'performed_by', 'performed_by_name', 'source', 'created_at']
         read_only_fields = ['created_at'] 
+class VendorAuditLogSerializer(serializers.ModelSerializer):
+    performed_by_name = serializers.CharField(source='performed_by.username', read_only=True)
+    performed_by_email = serializers.CharField(source='performed_by.email', read_only=True)
+    
+    class Meta:
+        model = VendorAuditLog
+        fields = [
+            'id', 'vendor_type', 'vendor_id', 'vendor_name', 'action', 
+            'performed_by', 'performed_by_name', 'performed_by_email',
+            'changes', 'ip_address', 'user_agent', 'created_at'
+        ]
+        read_only_fields = ['created_at']
