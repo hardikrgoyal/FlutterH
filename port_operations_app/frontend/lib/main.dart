@@ -36,6 +36,9 @@ import 'features/maintenance/screens/vendors_panel_screen.dart';
 import 'features/maintenance/screens/work_orders_screen.dart';
 import 'features/maintenance/screens/purchase_orders_screen.dart';
 import 'features/maintenance/screens/create_purchase_order_screen.dart';
+import 'features/maintenance/screens/master_data_management_screen.dart';
+import 'features/maintenance/screens/vendor_detail_screen.dart';
+import 'features/maintenance/screens/list_item_detail_screen.dart';
 
 import 'features/auth/auth_service.dart';
 import 'core/constants/app_theme.dart';
@@ -379,6 +382,34 @@ class PortOperationsApp extends ConsumerWidget {
           path: '/maintenance/vendors-panel',
           name: 'maintenance-vendors-panel',
           builder: (context, state) => const VendorsPanelScreen(),
+        ),
+
+        GoRoute(
+          path: '/maintenance/master-data',
+          name: 'maintenance-master-data',
+          builder: (context, state) => const MasterDataManagementScreen(),
+        ),
+
+        GoRoute(
+          path: '/maintenance/vendor-detail/:type/:vendorId',
+          name: 'maintenance-vendor-detail',
+          builder: (context, state) {
+            final type = state.pathParameters['type']!;
+            final vendorIdStr = state.pathParameters['vendorId']!;
+            final vendorId = vendorIdStr == 'new' ? null : int.parse(vendorIdStr);
+            return VendorDetailScreen(vendorType: type, vendorId: vendorId);
+          },
+        ),
+
+        GoRoute(
+          path: '/maintenance/list-item-detail/:listTypeCode/:itemId',
+          name: 'maintenance-list-item-detail',
+          builder: (context, state) {
+            final listTypeCode = state.pathParameters['listTypeCode']!;
+            final itemIdStr = state.pathParameters['itemId']!;
+            final itemId = itemIdStr == 'new' ? null : int.parse(itemIdStr);
+            return ListItemDetailScreen(listTypeCode: listTypeCode, itemId: itemId);
+          },
         ),
 
         GoRoute(

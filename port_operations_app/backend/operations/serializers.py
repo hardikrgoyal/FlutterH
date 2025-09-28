@@ -5,6 +5,8 @@ from .models import (
     LabourCost, MiscellaneousCost, RevenueStream,
     VehicleType, WorkType, PartyMaster, ContractorMaster, ServiceTypeMaster, UnitTypeMaster,
     Vehicle, VehicleDocument,
+    # List management models
+    ListTypeMaster, ListItemMaster, ListItemAuditLog,
     # Maintenance system models
     Vendor, POVendor, WOVendor, WorkOrder, PurchaseOrder, POItem, Stock, IssueSlip, WorkOrderPurchaseLink, AuditTrail
 )
@@ -567,6 +569,53 @@ class VendorAuditLogSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'vendor_type', 'vendor_id', 'vendor_name', 'action', 
             'performed_by', 'performed_by_name', 'performed_by_email',
+            'changes', 'ip_address', 'user_agent', 'created_at'
+        ]
+        read_only_fields = ['created_at']
+
+# List Management Serializers
+class ListTypeMasterSerializer(serializers.ModelSerializer):
+    items_count = serializers.IntegerField(source='items.count', read_only=True)
+    
+    class Meta:
+        model = ListTypeMaster
+        fields = ['id', 'name', 'code', 'description', 'is_active', 'created_at', 'items_count']
+        read_only_fields = ['created_at']
+
+class ListItemMasterSerializer(serializers.ModelSerializer):
+    list_type_name = serializers.CharField(source='list_type.name', read_only=True)
+    list_type_code = serializers.CharField(source='list_type.code', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    
+    class Meta:
+        model = ListItemMaster
+        fields = [
+            'id', 'list_type', 'list_type_name', 'list_type_code', 'name', 'code', 
+            'description', 'sort_order', 'is_active', 'created_by', 'created_by_name',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_by', 'created_at', 'updated_at']
+    
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        return super().create(validated_data)
+
+class ListItemMasterSimpleSerializer(serializers.ModelSerializer):
+    """Simplified serializer for dropdown/list usage"""
+    
+    class Meta:
+        model = ListItemMaster
+        fields = ['id', 'name', 'code', 'sort_order']
+
+class ListItemAuditLogSerializer(serializers.ModelSerializer):
+    performed_by_name = serializers.CharField(source='performed_by.username', read_only=True)
+    performed_by_email = serializers.CharField(source='performed_by.email', read_only=True)
+    
+    class Meta:
+        model = ListItemAuditLog
+        fields = [
+            'id', 'list_type_code', 'list_type_name', 'item_id', 'item_name', 
+            'action', 'performed_by', 'performed_by_name', 'performed_by_email',
             'changes', 'ip_address', 'user_agent', 'created_at'
         ]
         read_only_fields = ['created_at']

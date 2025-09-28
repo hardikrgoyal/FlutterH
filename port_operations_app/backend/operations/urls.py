@@ -20,6 +20,11 @@ router.register(r'labour-costs', views.LabourCostViewSet)
 router.register(r'miscellaneous-costs', views.MiscellaneousCostViewSet)
 router.register(r'revenue-streams', views.RevenueStreamViewSet)
 
+# List management routes
+router.register(r'list-types', views.ListTypeMasterViewSet)
+router.register(r'list-items', views.ListItemMasterViewSet)
+router.register(r'list-item-audit-logs', views.ListItemAuditLogViewSet)
+
 # Maintenance system routes
 router.register(r'vendors', views.VendorViewSet)
 router.register(r'po-vendors', views.POVendorViewSet)
@@ -34,4 +39,7 @@ router.register(r'vendor-audit-logs', views.VendorAuditLogViewSet)
 urlpatterns = [
     path('', include(router.urls)),
     path('dashboard/', views.DashboardView.as_view(), name='dashboard'),
+    # List management API endpoints
+    path('lists/<str:list_type_code>/', views.ListDataAPIView.as_view(), name='list-data'),
+    path('lists/', views.AllListsAPIView.as_view(), name='all-lists'),
 ] 

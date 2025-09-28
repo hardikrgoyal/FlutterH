@@ -8,6 +8,43 @@ import os
 
 User = get_user_model()
 
+class ListTypeMaster(models.Model):
+    """
+    Master table to define different types of lists in the system
+    """
+    name = models.CharField(max_length=50, unique=True)
+    code = models.CharField(max_length=20, unique=True)
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        ordering = ['name']
+
+class ListItemMaster(models.Model):
+    """
+    Master table for all list items across different list types
+    """
+    list_type = models.ForeignKey(ListTypeMaster, on_delete=models.CASCADE, related_name='items')
+    name = models.CharField(max_length=100)
+    code = models.CharField(max_length=50, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.list_type.name} - {self.name}"
+    
+    class Meta:
+        unique_together = ['list_type', 'name']
+        ordering = ['list_type__name', 'sort_order', 'name']
+
 class CargoOperation(models.Model):
     """
     Central model for cargo operations - acts as foreign key across modules
@@ -1136,3 +1173,40 @@ class VendorAuditLog(models.Model):
     
     def __str__(self):
         return f"{self.action.title()} {self.vendor_type} Vendor: {self.vendor_name} by {self.performed_by.username if self.performed_by else 'System'}"
+
+class ListItemAuditLog(models.Model):
+    """
+    Comprehensive audit log for list item changes
+    """
+    ACTION_CHOICES = (
+        ('created', 'Created'),
+        ('updated', 'Updated'),
+        ('deleted', 'Deleted'),
+        ('activated', 'Activated'),
+        ('deactivated', 'Deactivated'),
+    )
+    
+    list_type_code = models.CharField(max_length=50)
+    list_type_name = models.CharField(max_length=100)
+    item_id = models.IntegerField()
+    item_name = models.CharField(max_length=100)  # Store name at time of change
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES)
+    performed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    changes = models.JSONField(default=dict, blank=True)  # Store field changes
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['list_type_code', 'item_id']),
+            models.Index(fields=['action']),
+            models.Index(fields=['performed_by']),
+            models.Index(fields=['created_at']),
+        ]
+        verbose_name = 'List Item Audit Log'
+        verbose_name_plural = 'List Item Audit Logs'
+    
+    def __str__(self):
+        return f"{self.action.title()} {self.list_type_name}: {self.item_name} by {self.performed_by.username if self.performed_by else 'System'}"

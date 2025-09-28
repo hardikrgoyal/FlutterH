@@ -11,9 +11,12 @@ from .models import (
     LabourCost, MiscellaneousCost, RevenueStream,
     VehicleType, WorkType, PartyMaster, ContractorMaster, ServiceTypeMaster, UnitTypeMaster,
     Vehicle, VehicleDocument,
+    # List management models
+    ListTypeMaster, ListItemMaster, ListItemAuditLog,
     # Maintenance system models
     Vendor, POVendor, WOVendor, WorkOrder, PurchaseOrder, POItem, Stock, IssueSlip, WorkOrderPurchaseLink, AuditTrail, VendorAuditLog
 )
+from .signals import create_list_item_audit_log, create_audit_log
 from .serializers import (
     VendorAuditLogSerializer,
     CargoOperationSerializer, RateMasterSerializer, EquipmentSerializer, EquipmentRateMasterSerializer,
@@ -21,6 +24,8 @@ from .serializers import (
     RevenueStreamSerializer, VehicleTypeSerializer, WorkTypeSerializer, 
     PartyMasterSerializer, ContractorMasterSerializer, ServiceTypeMasterSerializer, UnitTypeMasterSerializer,
     VehicleSerializer, VehicleDocumentSerializer, VehicleDocumentHistorySerializer,
+    # List management serializers
+    ListTypeMasterSerializer, ListItemMasterSerializer, ListItemMasterSimpleSerializer, ListItemAuditLogSerializer,
     # Maintenance system serializers
     VendorSerializer, POVendorSerializer, WOVendorSerializer, WorkOrderSerializer, PurchaseOrderSerializer, POItemSerializer,
     StockSerializer, IssueSlipSerializer, WorkOrderPurchaseLinkSerializer, AuditTrailSerializer
@@ -884,6 +889,59 @@ class POVendorViewSet(viewsets.ModelViewSet):
         else:
             permission_classes = [IsSupervisorOrAbove]
         return [permission() for permission in permission_classes]
+    
+    def perform_create(self, serializer):
+        """Override to manually create audit log with request context"""
+        instance = serializer.save()
+        
+        # Create audit log manually with request context
+        changes = {
+            'action': 'created',
+            'fields': {
+                'name': {'new': instance.name},
+                'contact_person': {'new': instance.contact_person},
+                'phone_number': {'new': instance.phone_number},
+                'email': {'new': instance.email},
+                'address': {'new': instance.address},
+                'is_active': {'new': instance.is_active},
+            }
+        }
+        create_audit_log(instance, 'created', changes, self.request)
+    
+    def perform_update(self, serializer):
+        """Override to manually create audit log with request context"""
+        # Get original values before update
+        original_instance = self.get_object()
+        original_data = {
+            'name': original_instance.name,
+            'contact_person': original_instance.contact_person,
+            'phone_number': original_instance.phone_number,
+            'email': original_instance.email,
+            'address': original_instance.address,
+            'is_active': original_instance.is_active,
+        }
+        
+        # Save the updated instance
+        instance = serializer.save()
+        
+        # Compare and create audit log
+        changed_fields = {}
+        for field in ['name', 'contact_person', 'phone_number', 'email', 'address', 'is_active']:
+            old_value = original_data.get(field)
+            new_value = getattr(instance, field)
+            
+            if old_value != new_value:
+                changed_fields[field] = {
+                    'old': old_value,
+                    'new': new_value
+                }
+        
+        if changed_fields:
+            changes = {
+                'action': 'updated',
+                'fields': changed_fields
+            }
+            create_audit_log(instance, 'updated', changes, self.request)
 
 
 class WOVendorViewSet(viewsets.ModelViewSet):
@@ -904,6 +962,59 @@ class WOVendorViewSet(viewsets.ModelViewSet):
         else:
             permission_classes = [IsSupervisorOrAbove]
         return [permission() for permission in permission_classes]
+    
+    def perform_create(self, serializer):
+        """Override to manually create audit log with request context"""
+        instance = serializer.save()
+        
+        # Create audit log manually with request context
+        changes = {
+            'action': 'created',
+            'fields': {
+                'name': {'new': instance.name},
+                'contact_person': {'new': instance.contact_person},
+                'phone_number': {'new': instance.phone_number},
+                'email': {'new': instance.email},
+                'address': {'new': instance.address},
+                'is_active': {'new': instance.is_active},
+            }
+        }
+        create_audit_log(instance, 'created', changes, self.request)
+    
+    def perform_update(self, serializer):
+        """Override to manually create audit log with request context"""
+        # Get original values before update
+        original_instance = self.get_object()
+        original_data = {
+            'name': original_instance.name,
+            'contact_person': original_instance.contact_person,
+            'phone_number': original_instance.phone_number,
+            'email': original_instance.email,
+            'address': original_instance.address,
+            'is_active': original_instance.is_active,
+        }
+        
+        # Save the updated instance
+        instance = serializer.save()
+        
+        # Compare and create audit log
+        changed_fields = {}
+        for field in ['name', 'contact_person', 'phone_number', 'email', 'address', 'is_active']:
+            old_value = original_data.get(field)
+            new_value = getattr(instance, field)
+            
+            if old_value != new_value:
+                changed_fields[field] = {
+                    'old': old_value,
+                    'new': new_value
+                }
+        
+        if changed_fields:
+            changes = {
+                'action': 'updated',
+                'fields': changed_fields
+            }
+            create_audit_log(instance, 'updated', changes, self.request)
 
 
 class WorkOrderViewSet(viewsets.ModelViewSet):
@@ -1331,4 +1442,197 @@ class VendorAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
         
         from .serializers import VendorAuditLogSerializer
         serializer = VendorAuditLogSerializer(audit_logs, many=True)
+        return Response(serializer.data)
+
+# List Management Views
+class ListTypeMasterViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing list types
+    """
+    queryset = ListTypeMaster.objects.all()
+    serializer_class = ListTypeMasterSerializer
+    permission_classes = [IsManagerOrAdmin]
+    
+    @action(detail=True, methods=['get'])
+    def items(self, request, pk=None):
+        """Get all items for a specific list type"""
+        list_type = self.get_object()
+        items = ListItemMaster.objects.filter(
+            list_type=list_type, 
+            is_active=True
+        ).order_by('sort_order', 'name')
+        
+        serializer = ListItemMasterSimpleSerializer(items, many=True)
+        return Response(serializer.data)
+
+class ListItemMasterViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing list items
+    """
+    queryset = ListItemMaster.objects.all()
+    serializer_class = ListItemMasterSerializer
+    permission_classes = [IsManagerOrAdmin]
+    
+    def get_queryset(self):
+        queryset = ListItemMaster.objects.all()
+        list_type_code = self.request.query_params.get('list_type', None)
+        if list_type_code:
+            queryset = queryset.filter(list_type__code=list_type_code)
+        return queryset.order_by('sort_order', 'name')
+    
+    def perform_create(self, serializer):
+        """Override to manually create audit log with request context"""
+        instance = serializer.save()
+        
+        # Create audit log manually with request context
+        changes = {
+            'action': 'created',
+            'fields': {
+                'name': {'new': instance.name},
+                'code': {'new': instance.code},
+                'description': {'new': instance.description},
+                'sort_order': {'new': instance.sort_order},
+                'is_active': {'new': instance.is_active},
+            }
+        }
+        create_list_item_audit_log(instance, 'created', changes, self.request)
+    
+    def perform_update(self, serializer):
+        """Override to manually create audit log with request context"""
+        # Get original values before update
+        original_instance = self.get_object()
+        original_data = {
+            'name': original_instance.name,
+            'code': original_instance.code,
+            'description': original_instance.description,
+            'sort_order': original_instance.sort_order,
+            'is_active': original_instance.is_active,
+        }
+        
+        # Save the updated instance
+        instance = serializer.save()
+        
+        # Compare and create audit log
+        changed_fields = {}
+        for field in ['name', 'code', 'description', 'sort_order', 'is_active']:
+            old_value = original_data.get(field)
+            new_value = getattr(instance, field)
+            
+            if old_value != new_value:
+                changed_fields[field] = {
+                    'old': old_value,
+                    'new': new_value
+                }
+        
+        if changed_fields:
+            changes = {
+                'action': 'updated',
+                'fields': changed_fields
+            }
+            create_list_item_audit_log(instance, 'updated', changes, self.request)
+
+class ListDataAPIView(generics.GenericAPIView):
+    """
+    API to get list data by list type code for dropdowns
+    """
+    permission_classes = [IsSupervisorOrAbove]
+    
+    def get(self, request, list_type_code):
+        """Get active items for a specific list type"""
+        try:
+            list_type = ListTypeMaster.objects.get(code=list_type_code, is_active=True)
+            items = ListItemMaster.objects.filter(
+                list_type=list_type,
+                is_active=True
+            ).order_by('sort_order', 'name')
+            
+            serializer = ListItemMasterSimpleSerializer(items, many=True)
+            return Response({
+                'list_type': list_type.name,
+                'items': serializer.data
+            })
+        except ListTypeMaster.DoesNotExist:
+            return Response(
+                {'error': 'List type not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+class AllListsAPIView(generics.GenericAPIView):
+    """
+    API to get all list types and their items for the lists management screen
+    """
+    permission_classes = [IsManagerOrAdmin]
+    
+    def get(self, request):
+        """Get all list types with their items"""
+        list_types = ListTypeMaster.objects.filter(is_active=True).order_by('name')
+        
+        result = []
+        for list_type in list_types:
+            items = ListItemMaster.objects.filter(
+                list_type=list_type,
+                is_active=True
+            ).order_by('sort_order', 'name')
+            
+            result.append({
+                'id': list_type.id,
+                'name': list_type.name,
+                'code': list_type.code,
+                'description': list_type.description,
+                'items_count': items.count(),
+                'items': ListItemMasterSimpleSerializer(items, many=True).data
+            })
+        
+        return Response(result)
+
+class ListItemAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet for retrieving list item audit logs
+    """
+    queryset = ListItemAuditLog.objects.all()
+    serializer_class = ListItemAuditLogSerializer
+    permission_classes = [IsManagerOrAdmin]  # Only managers and admins can view audit logs
+    
+    def get_queryset(self):
+        list_type_code = self.request.GET.get('list_type_code')
+        item_id = self.request.GET.get('item_id')
+        
+        queryset = ListItemAuditLog.objects.all()
+        
+        if list_type_code:
+            queryset = queryset.filter(list_type_code=list_type_code)
+        
+        if item_id:
+            queryset = queryset.filter(item_id=item_id)
+        
+        return queryset.order_by('-created_at')
+    
+    @action(detail=False, methods=['get'])
+    def by_item(self, request):
+        """
+        Get audit logs for a specific list item
+        """
+        list_type_code = request.GET.get('list_type_code')
+        item_id = request.GET.get('item_id')
+        
+        if not list_type_code or not item_id:
+            return Response(
+                {'error': 'list_type_code and item_id are required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            item_id = int(item_id)
+        except ValueError:
+            return Response(
+                {'error': 'item_id must be a valid integer'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        audit_logs = ListItemAuditLog.objects.filter(
+            list_type_code=list_type_code,
+            item_id=item_id
+        ).order_by('-created_at')
+        
+        serializer = ListItemAuditLogSerializer(audit_logs, many=True)
         return Response(serializer.data)

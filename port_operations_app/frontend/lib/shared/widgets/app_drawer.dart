@@ -311,12 +311,12 @@ class AppDrawer extends ConsumerWidget {
             },
           },
           {
-            'title': 'Vendors',
-            'icon': Icons.business,
+            'title': 'Master Data',
+            'icon': Icons.storage,
             'color': AppColors.info,
             'onTap': () {
               Navigator.pop(context);
-              context.go('/maintenance/vendors-panel');
+              context.go('/maintenance/master-data');
             },
           },
         ];
@@ -434,12 +434,12 @@ class AppDrawer extends ConsumerWidget {
             },
           },
           {
-            'title': 'Vendors',
-            'icon': Icons.business,
+            'title': 'Master Data',
+            'icon': Icons.storage,
             'color': AppColors.info,
             'onTap': () {
               Navigator.pop(context);
-              context.go('/maintenance/vendors-panel');
+              context.go('/maintenance/master-data');
             },
           },
         ];
