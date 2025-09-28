@@ -46,7 +46,6 @@ class User {
   bool get isManager => role == 'manager';
   bool get isSupervisor => role == 'supervisor';
   bool get isAccountant => role == 'accountant';
-  bool get isOfficeBoy => role == 'office_boy';
   bool get isOffice => role == 'office';
 
   // Permission helper methods
@@ -69,10 +68,12 @@ class User {
   bool get canCreatePurchaseOrders => isAdmin || isManager || isSupervisor;
   bool get canManagePurchaseOrders => isAdmin || isManager;
   bool get canManageVendors => isAdmin || isManager;
-  bool get canEnterBillNumbers => isAdmin || isManager || role == 'office_boy';
-  bool get canItemizePurchaseOrders => isAdmin || isManager || isOfficeBoy || isOffice;
+  bool get canEnterBillNumbers => isAdmin || isManager || isOffice;
+  bool get canItemizePurchaseOrders => isAdmin || isManager || isOffice;
   bool get canAccessInvoiceTracking => isAdmin || isManager || isAccountant;
   bool get canAccessCostDetails => isAdmin || isManager;
+  bool get canManageVehicleDocuments => isAdmin || isManager || isAccountant || isOffice;
+  bool get canViewVehicleDocuments => isAdmin || isManager || isSupervisor || isAccountant || isOffice;
 
   String get roleDisplayName {
     switch (role) {
@@ -84,8 +85,6 @@ class User {
         return 'Supervisor';
       case 'accountant':
         return 'Accountant';
-      case 'office_boy':
-        return 'Office Boy';
       case 'office':
         return 'Office';
       default:

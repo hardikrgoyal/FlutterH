@@ -123,9 +123,9 @@ class CanManageVehicles(BaseRolePermission):
 class CanViewVehicles(BaseRolePermission):
     """
     Permission for users who can view vehicles
-    All authenticated users can view vehicles
+    All authenticated users can view vehicles and office
     """
-    allowed_roles = ['supervisor', 'manager', 'admin', 'accountant'] 
+    allowed_roles = ['supervisor', 'manager', 'admin', 'accountant', 'office']
 
 
 # === MAINTENANCE SYSTEM PERMISSIONS ===
@@ -157,9 +157,9 @@ class CanCreatePurchaseOrders(BaseRolePermission):
 class CanManagePurchaseOrders(BaseRolePermission):
     """
     Permission for full purchase order management
-    Admin and Manager only
+    Admin, Manager and Office only
     """
-    allowed_roles = ['admin', 'manager']
+    allowed_roles = ['admin', 'manager', 'office']
 
 
 class CanManageVendors(BaseRolePermission):
@@ -173,17 +173,17 @@ class CanManageVendors(BaseRolePermission):
 class CanEnterBillNumbers(BaseRolePermission):
     """
     Permission for entering bill numbers
-    Admin, Manager, Office Boy can enter
+    Admin, Manager, Office can enter
     """
-    allowed_roles = ['admin', 'manager', 'office_boy']
+    allowed_roles = ['admin', 'manager', 'office']
 
 
 class CanItemizePurchaseOrders(BaseRolePermission):
     """
     Permission for itemizing purchase orders
-    Office Boy role (future implementation)
+    Admin, Manager, Office can itemize
     """
-    allowed_roles = ['office_boy']
+    allowed_roles = ['admin', 'manager', 'office']
 
 
 class CanManageStock(BaseRolePermission):

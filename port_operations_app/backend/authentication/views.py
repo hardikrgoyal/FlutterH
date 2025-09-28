@@ -140,8 +140,9 @@ def user_permissions(request):
             'approve_financial', 'topup_wallets', 'log_tally', 'enter_revenue',
             'manage_vehicle_documents', 'view_vehicle_documents'
         ],
-        'office_boy': [
-            'enter_bill_numbers', 'itemize_purchase_orders'
+        'office': [
+            'itemize_purchase_orders', 'manage_purchase_orders',
+            'manage_vehicle_documents', 'view_vehicle_documents'
         ]
     }
     

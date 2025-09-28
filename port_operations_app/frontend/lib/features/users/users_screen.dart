@@ -590,7 +590,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
   bool _isActive = true;
   bool _isLoading = false;
 
-  final List<String> _availableRoles = ['admin', 'manager', 'supervisor', 'accountant', 'office_boy', 'office'];
+  final List<String> _availableRoles = ['admin', 'manager', 'supervisor', 'accountant', 'office'];
 
   String _getRoleDisplayName(String role) {
     switch (role) {
@@ -602,8 +602,6 @@ class _AddUserDialogState extends State<AddUserDialog> {
         return 'Supervisor';
       case 'accountant':
         return 'Accountant';
-      case 'office_boy':
-        return 'Office Boy';
       case 'office':
         return 'Office';
       default:
@@ -856,7 +854,7 @@ class _EditUserDialogState extends State<EditUserDialog> {
   late bool _isActive;
   bool _isLoading = false;
 
-  final List<String> _availableRoles = ['admin', 'manager', 'supervisor', 'accountant', 'office_boy', 'office'];
+  final List<String> _availableRoles = ['admin', 'manager', 'supervisor', 'accountant', 'office'];
 
   String _getRoleDisplayName(String role) {
     switch (role) {
@@ -868,8 +866,6 @@ class _EditUserDialogState extends State<EditUserDialog> {
         return 'Supervisor';
       case 'accountant':
         return 'Accountant';
-      case 'office_boy':
-        return 'Office Boy';
       case 'office':
         return 'Office';
       default:

@@ -10,7 +10,6 @@ class User(AbstractUser):
         ('manager', 'Manager'),
         ('supervisor', 'Supervisor'),
         ('accountant', 'Accountant'),
-        ('office_boy', 'Office Boy'),
         ('office', 'Office'),
     ]
     
@@ -39,10 +38,6 @@ class User(AbstractUser):
     @property
     def is_accountant(self):
         return self.role == 'accountant'
-    
-    @property
-    def is_office_boy(self):
-        return self.role == 'office_boy'
     
     @property
     def is_office(self):
@@ -80,11 +75,9 @@ class User(AbstractUser):
                 'approve_financial', 'topup_wallets', 'log_tally', 'enter_revenue',
                 'manage_vehicle_documents', 'view_vehicle_documents'
             ],
-            'office_boy': [
-                'enter_bill_numbers', 'itemize_purchase_orders'
-            ],
             'office': [
-                'itemize_purchase_orders', 'manage_purchase_orders'
+                'itemize_purchase_orders', 'manage_purchase_orders',
+                'manage_vehicle_documents', 'view_vehicle_documents'
             ]
         }
         
