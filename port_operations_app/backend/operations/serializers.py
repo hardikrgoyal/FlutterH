@@ -5,7 +5,7 @@ from .models import (
     VehicleType, WorkType, PartyMaster, ContractorMaster, ServiceTypeMaster, UnitTypeMaster,
     Vehicle, VehicleDocument,
     # Maintenance system models
-    Vendor, WorkOrder, PurchaseOrder, POItem, Stock, IssueSlip, WorkOrderPurchaseLink, AuditTrail
+    Vendor, POVendor, WOVendor, WorkOrder, PurchaseOrder, POItem, Stock, IssueSlip, WorkOrderPurchaseLink, AuditTrail
 )
 
 class CargoOperationSerializer(serializers.ModelSerializer):
@@ -358,6 +358,34 @@ class VendorSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Vendor
+        fields = '__all__'
+        read_only_fields = ['created_by', 'created_at']
+    
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+
+
+class POVendorSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    
+    class Meta:
+        model = POVendor
+        fields = '__all__'
+        read_only_fields = ['created_by', 'created_at']
+    
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class WOVendorSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    
+    class Meta:
+        model = WOVendor
         fields = '__all__'
         read_only_fields = ['created_by', 'created_at']
     

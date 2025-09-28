@@ -1,17 +1,12 @@
-import 'dart:typed_data';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:html' as html if (dart.library.html) 'dart:html';
 import '../../../core/constants/app_colors.dart';
-import '../../../shared/models/user_model.dart';
 import '../../../shared/widgets/vehicle_search_dropdown.dart';
-import '../services/vendor_service.dart';
+import '../services/wo_vendor_service.dart';
 import '../services/work_order_service.dart';
 import '../services/purchase_order_service.dart';
 import '../services/audio_recording_service.dart';
-import '../../auth/auth_service.dart';
 import '../../../shared/models/work_order_model.dart';
 
 class CreateWorkOrderScreen extends ConsumerStatefulWidget {
@@ -24,12 +19,6 @@ class CreateWorkOrderScreen extends ConsumerStatefulWidget {
 
 class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
   
-  Future<Uint8List> _blobToBytes(html.Blob blob) async {
-    final reader = html.FileReader();
-    reader.readAsArrayBuffer(blob);
-    await reader.onLoad.first;
-    return reader.result as Uint8List;
-  }
   final _formKey = GlobalKey<FormState>();
   
   // Form controllers
@@ -40,42 +29,34 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
   // Form values
   int? _selectedVendorId;
   int? _selectedVehicleId;
-  String _selectedCategory = 'Engine';
+  String _selectedCategory = 'engine';
   String _status = 'open';
   XFile? _audioFile;
   bool _showAddNewVendor = false;
   String? _selectedVehicleNumber;
   String? _customVehicleNumber;
   int? _selectedLinkedPo;
+  String? _webAudioBlobUrl;
+  
   bool get _isEdit => widget.initialWorkOrder != null;
   
-  // Dropdown options
-  final List<String> _categories = [
-    'Engine',
-    'Hydraulic', 
-    'Bushing',
-    'Electrical',
-    'Other'
-  ];
-  
-  // Web-only: keep the blob URL for reliable playback in browser
-  String? _webAudioBlobUrl;
-
   @override
   void initState() {
     super.initState();
     if (_isEdit) {
-      final wo = widget.initialWorkOrder!;
-      _selectedVendorId = wo.vendor;
-      _selectedCategory = wo.categoryDisplay;
-      _status = wo.status;
-      _remarkController.text = wo.remarkText ?? '';
-      _selectedVehicleNumber = wo.vehicleNumber ?? (wo.vehicleOther != null ? 'others' : null);
-      _customVehicleNumber = wo.vehicleOther;
-      if (wo.vehicleOther != null) {
-        _vehicleOtherController.text = wo.vehicleOther!;
-      }
+      _loadExistingData();
     }
+  }
+  
+  void _loadExistingData() {
+    final wo = widget.initialWorkOrder!;
+    _selectedVendorId = wo.vendor;
+    _selectedVehicleId = wo.vehicle;
+    _selectedCategory = wo.category;
+    _status = wo.status;
+    _remarkController.text = wo.remarkText ?? '';
+    _selectedVehicleNumber = wo.vehicleNumber;
+    _selectedLinkedPo = wo.linkedPo;
   }
 
   @override
@@ -86,10 +67,65 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
     super.dispose();
   }
 
+  Future<void> _submitForm() async {
+    if (!_formKey.currentState!.validate()) return;
+    
+    if (_selectedVendorId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a vendor')),
+      );
+      return;
+    }
+
+    try {
+      final workOrderData = {
+        'vendor': _selectedVendorId,
+        'category': _selectedCategory,
+        'status': _status,
+        'remark_text': _remarkController.text.trim(),
+        'linked_po': _selectedLinkedPo,
+      };
+
+      // Handle vehicle selection - either vehicle ID or vehicle_other
+      if (_selectedVehicleId != null) {
+        workOrderData['vehicle'] = _selectedVehicleId;
+      } else if (_customVehicleNumber != null && _customVehicleNumber!.isNotEmpty) {
+        workOrderData['vehicle_other'] = _customVehicleNumber;
+      }
+
+      if (_isEdit) {
+        await ref.read(workOrderServiceProvider).updateWorkOrder(
+          widget.initialWorkOrder!.id!,
+          workOrderData,
+          audioFile: _audioFile,
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Work order updated successfully')),
+        );
+      } else {
+        await ref.read(workOrderServiceProvider).createWorkOrder(
+          workOrderData,
+          audioFile: _audioFile,
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Work order created successfully')),
+        );
+      }
+      
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_isEdit ? 'Error updating work order: $e' : 'Error creating work order: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authStateProvider);
-    final user = authState.user;
+    final woVendorsAsync = ref.watch(woVendorsProvider);
+    final purchaseOrdersAsync = ref.watch(purchaseOrdersProvider('open'));
 
     return Scaffold(
       appBar: AppBar(
@@ -97,480 +133,295 @@ class _CreateWorkOrderScreenState extends ConsumerState<CreateWorkOrderScreen> {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
-      body: _buildForm(user),
-    );
-  }
-
-  Widget _buildForm(User? user) {
-    return Form(
-      key: _formKey,
-      child: SingleChildScrollView(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildVendorField(),
-            const SizedBox(height: 16),
-            _buildVehicleField(),
-            const SizedBox(height: 16),
-            _buildLinkedPoField(),
-            const SizedBox(height: 16),
-            _buildCategoryField(),
-            const SizedBox(height: 16),
-            _buildRemarkField(),
-            const SizedBox(height: 16),
-            _buildAudioField(),
-            const SizedBox(height: 32),
-            _buildSubmitButton(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildVendorField() {
-    final vendorsAsync = ref.watch(vendorsProvider);
-    
-    return vendorsAsync.when(
-      data: (vendors) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          DropdownButtonFormField<int>(
-            value: _selectedVendorId,
-            decoration: const InputDecoration(
-              labelText: 'Vendor *',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.business),
-            ),
-            validator: (value) {
-              if (value == null) {
-                return 'Please select a vendor';
-              }
-              return null;
-            },
-            items: [
-              ...vendors.map((vendor) => DropdownMenuItem<int>(
-                value: vendor.id,
-                child: Text(vendor.name),
-              )),
-              const DropdownMenuItem(
-                value: -1,
-                child: Row(
-                  children: [
-                    Icon(Icons.add, size: 20, color: AppColors.primary),
-                    SizedBox(width: 8),
-                    Text('Add New Vendor', style: TextStyle(color: AppColors.primary)),
-                  ],
-                ),
-              ),
-            ],
-            onChanged: (value) {
-              setState(() {
-                if (value == -1) {
-                  _showAddNewVendor = true;
-                  _selectedVendorId = null;
-                } else {
-                  _selectedVendorId = value;
-                  _showAddNewVendor = false;
-                }
-              });
-            },
-          ),
-          if (_showAddNewVendor) ...[
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _newVendorController,
-              decoration: const InputDecoration(
-                labelText: 'New Vendor Name *',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.business),
-              ),
-              validator: (value) {
-                if (_showAddNewVendor && (value?.trim().isEmpty ?? true)) {
-                  return 'Please enter vendor name';
-                }
-                return null;
-              },
-            ),
-          ],
-        ],
-      ),
-      loading: () => DropdownButtonFormField<int>(
-        decoration: const InputDecoration(
-          labelText: 'Loading vendors...',
-          border: OutlineInputBorder(),
-          prefixIcon: Icon(Icons.business),
-        ),
-        items: const [],
-        onChanged: null,
-      ),
-      error: (error, stack) => DropdownButtonFormField<int>(
-        decoration: InputDecoration(
-          labelText: 'Error loading vendors',
-          border: OutlineInputBorder(
-            borderSide: const BorderSide(color: Colors.red),
-          ),
-          prefixIcon: Icon(Icons.error, color: Colors.red),
-        ),
-        items: const [],
-        onChanged: null,
-      ),
-    );
-  }
-
-  Widget _buildVehicleField() {
-    return VehicleSearchDropdown(
-      selectedVehicleNumber: _selectedVehicleNumber,
-      customVehicleNumber: _customVehicleNumber,
-      labelText: 'Vehicle *',
-      hintText: 'Search and select vehicle',
-      onVehicleSelected: (vehicleNumber) {
-        setState(() {
-          _selectedVehicleNumber = vehicleNumber;
-          if (vehicleNumber != 'others') {
-            _vehicleOtherController.text = vehicleNumber ?? '';
-            _customVehicleNumber = null;
-          }
-        });
-      },
-      onCustomVehicleChanged: (customVehicle) {
-        setState(() {
-          _customVehicleNumber = customVehicle;
-          _vehicleOtherController.text = customVehicle ?? '';
-        });
-      },
-    );
-  }
-
-  Widget _buildLinkedPoField() {
-    final purchaseOrdersAsync = ref.watch(purchaseOrdersProvider('open'));
-    
-    return purchaseOrdersAsync.when(
-      data: (pos) {
-        // Filter: POs that are not linked to any WO (one-to-one enforcement)
-        final availablePOs = pos.where((po) => po.linkedWoIds == null || po.linkedWoIds!.isEmpty).toList();
-        
-        if (availablePOs.isEmpty) {
-          return Column(
+        child: Form(
+          key: _formKey,
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue[200]!),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info, color: Colors.blue[700], size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'No unlinked purchase orders available to link.',
-                        style: TextStyle(color: Colors.blue[800]),
-                      ),
-                    ),
-                  ],
+              // Vendor Selection
+              Text(
+                'Vendor *',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 8),
-              DropdownButtonFormField<int>(
-                value: null,
-                decoration: const InputDecoration(
-                  labelText: 'Link to Purchase Order (Optional)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.link),
-                ),
-                items: const [
-                  DropdownMenuItem<int>(
-                    value: null,
-                    child: Text('No PO Link'),
-                  ),
-                ],
-                onChanged: null,
-              ),
-            ],
-          );
-        }
-        
-        return DropdownButtonFormField<int>(
-          value: _selectedLinkedPo,
-          decoration: const InputDecoration(
-            labelText: 'Link to Purchase Order (Optional)',
-            border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.link),
-            hintText: 'Select PO to link with this WO',
-          ),
-          items: [
-            const DropdownMenuItem<int>(
-              value: null,
-              child: Text('No PO Link'),
-            ),
-            ...availablePOs.map((po) => DropdownMenuItem<int>(
-              value: po.id,
-              child: Text('${po.poId} - ${po.displayTarget}'),
-            )),
-          ],
-          onChanged: (value) {
-            setState(() {
-              _selectedLinkedPo = value;
-            });
-          },
-        );
-      },
-      loading: () => DropdownButtonFormField<int>(
-        decoration: const InputDecoration(
-          labelText: 'Link to Purchase Order (Optional)',
-          border: OutlineInputBorder(),
-          prefixIcon: Icon(Icons.link),
-        ),
-        items: const [],
-        onChanged: null,
-      ),
-      error: (error, stack) => DropdownButtonFormField<int>(
-        decoration: const InputDecoration(
-          labelText: 'Link to Purchase Order (Optional)',
-          border: OutlineInputBorder(),
-          prefixIcon: Icon(Icons.link),
-          errorText: 'Failed to load POs',
-        ),
-        items: const [
-          DropdownMenuItem<int>(
-            value: null,
-            child: Text('No PO Link'),
-          ),
-        ],
-        onChanged: (value) {
-          setState(() {
-            _selectedLinkedPo = value;
-          });
-        },
-      ),
-    );
-  }
-
-  Widget _buildCategoryField() {
-    return DropdownButtonFormField<String>(
-      value: _selectedCategory,
-      decoration: const InputDecoration(
-        labelText: 'Category *',
-        border: OutlineInputBorder(),
-        prefixIcon: Icon(Icons.category),
-      ),
-      items: _categories.map((category) => DropdownMenuItem<String>(
-        value: category,
-        child: Text(category),
-      )).toList(),
-      onChanged: (value) {
-        setState(() {
-          _selectedCategory = value!;
-        });
-      },
-    );
-  }
-
-  Widget _buildRemarkField() {
-    return TextFormField(
-      controller: _remarkController,
-      decoration: const InputDecoration(
-        labelText: 'Remarks (Optional)',
-        border: OutlineInputBorder(),
-        prefixIcon: Icon(Icons.notes),
-        hintText: 'Enter work description and notes, or use audio note below',
-      ),
-      maxLines: 4,
-      // Removed validation - now optional since audio can be used instead
-    );
-  }
-
-    Widget _buildAudioField() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.mic, color: AppColors.primary),
-                const SizedBox(width: 8),
-                const Text(
-                  'Audio Note (Optional)',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (_audioFile != null) ...[
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
+              woVendorsAsync.when(
+                data: (vendors) => Column(
                   children: [
-                    const Icon(Icons.audiotrack, color: Colors.green),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Audio recorded: ${_audioFile!.name}',
-                        style: const TextStyle(color: Colors.green),
+                    DropdownButtonFormField<int>(
+                      value: _selectedVendorId,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        hintText: 'Select vendor',
                       ),
-                    ),
-                    IconButton(
-                      onPressed: () async {
-                        final audioService = ref.read(audioRecordingServiceProvider);
-                        if (kIsWeb && _webAudioBlobUrl != null) {
-                          await audioService.playAudio(_webAudioBlobUrl!);
-                        } else {
-                          await audioService.playAudio(_audioFile!.path);
-                        }
-                      },
-                      icon: const Icon(Icons.play_arrow, color: Colors.blue),
-                      tooltip: 'Play audio',
-                    ),
-                    IconButton(
-                      onPressed: () {
+                      items: vendors.map((vendor) {
+                        return DropdownMenuItem(
+                          value: vendor.id,
+                          child: Text(vendor.name),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
                         setState(() {
-                          _audioFile = null;
-                          _webAudioBlobUrl = null;
+                          _selectedVendorId = value;
                         });
                       },
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      tooltip: 'Delete audio',
+                      validator: (value) {
+                        if (value == null) return 'Please select a vendor';
+                        return null;
+                      },
                     ),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _showAddNewVendor = !_showAddNewVendor;
+                        });
+                      },
+                      icon: const Icon(Icons.add),
+                      label: Text(_showAddNewVendor ? 'Cancel' : 'Add New Vendor'),
+                    ),
+                    if (_showAddNewVendor) ...[
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _newVendorController,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          labelText: 'New Vendor Name',
+                        ),
+                        validator: (value) {
+                          if (_showAddNewVendor && (value == null || value.trim().isEmpty)) {
+                            return 'Please enter vendor name';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      ElevatedButton(
+                        onPressed: () async {
+                          if (_newVendorController.text.trim().isNotEmpty) {
+                            try {
+                              await ref.read(woVendorServiceProvider).createWOVendor({
+                                'name': _newVendorController.text.trim(),
+                                'contact_person': '',
+                                'phone': '',
+                                'email': '',
+                                'address': '',
+                              });
+                              _newVendorController.clear();
+                              setState(() {
+                                _showAddNewVendor = false;
+                              });
+                              ref.invalidate(woVendorsProvider);
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error creating vendor: $e')),
+                              );
+                            }
+                          }
+                        },
+                        child: const Text('Create Vendor'),
+                      ),
+                    ],
                   ],
                 ),
+                loading: () => const CircularProgressIndicator(),
+                error: (error, stack) => Text('Error loading vendors: $error'),
               ),
-            ] else ...[
-              AudioRecordingWidget(
-                initialAudioPath: _audioFile?.path,
-                onAudioRecorded: (audioPath) async {
-                  if (kIsWeb && audioPath.startsWith('blob:')) {
-                    // For web, convert blob to XFile and store blob URL for playback
-                    try {
-                      final response = await html.HttpRequest.request(audioPath, responseType: 'blob');
-                      final blob = response.response as html.Blob;
-                      final bytes = await _blobToBytes(blob);
-                      final fileName = 'recording_${DateTime.now().millisecondsSinceEpoch}.wav';
-                      setState(() {
-                        _audioFile = XFile.fromData(bytes, name: fileName, mimeType: 'audio/webm');
-                        _webAudioBlobUrl = audioPath;
-                      });
-                    } catch (e) {
-                      print('Error converting blob to file: $e');
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error processing audio recording: $e')),
-                      );
-                    }
-                  } else {
+              
+              const SizedBox(height: 24),
+              
+              // Category Selection
+              Text(
+                'Category',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: _selectedCategory,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'engine', child: Text('Engine')),
+                  DropdownMenuItem(value: 'hydraulic', child: Text('Hydraulic')),
+                  DropdownMenuItem(value: 'bushing', child: Text('Bushing')),
+                  DropdownMenuItem(value: 'electrical', child: Text('Electrical')),
+                  DropdownMenuItem(value: 'other', child: Text('Other')),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _selectedCategory = value!;
+                  });
+                },
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Vehicle Selection
+              Text(
+                'Vehicle',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              VehicleSearchDropdown(
+                selectedVehicleNumber: _selectedVehicleNumber,
+                onVehicleSelected: (vehicleNumber) {
+                  setState(() {
+                    _selectedVehicleNumber = vehicleNumber;
+                    _customVehicleNumber = null;
+                  });
+                },
+                onVehicleObjectSelected: (vehicle) {
+                  setState(() {
+                    _selectedVehicleId = vehicle?.id;
+                    _selectedVehicleNumber = vehicle?.vehicleNumber;
+                    _customVehicleNumber = null;
+                  });
+                },
+                onCustomVehicleChanged: (customNumber) {
+                  setState(() {
+                    _customVehicleNumber = customNumber;
+                    _selectedVehicleNumber = null;
+                    _selectedVehicleId = null;
+                  });
+                },
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Linked Purchase Order
+              Text(
+                'Linked Purchase Order',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              purchaseOrdersAsync.when(
+                data: (purchaseOrders) => DropdownButtonFormField<int>(
+                  value: _selectedLinkedPo,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'Select purchase order (optional)',
+                  ),
+                  items: purchaseOrders.map((po) {
+                    return DropdownMenuItem(
+                      value: po.id,
+                      child: Text('PO-${po.id} - ${po.category}'),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedLinkedPo = value;
+                    });
+                  },
+                ),
+                loading: () => const CircularProgressIndicator(),
+                error: (error, stack) => Text('Error loading purchase orders: $error'),
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Description
+              Text(
+                'Description',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _remarkController,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: 'Enter work description...',
+                ),
+                maxLines: 3,
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Audio Recording
+              Text(
+                'Audio Recording',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (_audioFile != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.audiotrack, color: Colors.blue),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Audio recording attached',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () {
+                          setState(() {
+                            _audioFile = null;
+                            _webAudioBlobUrl = null;
+                          });
+                        },
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                AudioRecordingWidget(
+                  initialAudioPath: _audioFile?.path,
+                  onAudioRecorded: (audioPath) async {
                     setState(() {
                       _audioFile = XFile(audioPath);
                       _webAudioBlobUrl = null;
                     });
-                  }
-                },
-                onCancel: () {
-                  setState(() {
-                    _audioFile = null;
-                    _webAudioBlobUrl = null;
-                  });
-                },
-              ),
+                  },
+                  onCancel: () {
+                    setState(() {
+                      _audioFile = null;
+                      _webAudioBlobUrl = null;
+                    });
+                  },
+                ),
+              ],
             ],
-          ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.all(16),
+        child: ElevatedButton(
+          onPressed: _submitForm,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+          ),
+          child: Text(
+            _isEdit ? 'Update Work Order' : 'Create Work Order',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
         ),
       ),
     );
   }
-
-  Widget _buildSubmitButton() {
-    return ElevatedButton(
-      onPressed: _submitForm,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-      ),
-      child: Text(
-        _isEdit ? 'Save Changes' : 'Create Work Order',
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-
-
-  void _submitForm() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    // Check if either text remarks or audio is provided
-    final hasTextRemarks = _remarkController.text.trim().isNotEmpty;
-    final hasAudio = _audioFile != null;
-    
-    if (!hasTextRemarks && !hasAudio) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please provide either text remarks or an audio note'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    try {
-      int vendorId = _selectedVendorId ?? 0;
-      
-      // Create new vendor if needed
-      if (_showAddNewVendor && _newVendorController.text.trim().isNotEmpty) {
-        final vendorService = ref.read(vendorServiceProvider);
-        final newVendor = await vendorService.createVendor({
-          'name': _newVendorController.text.trim(),
-        });
-        vendorId = newVendor.id;
-      }
-
-      final workOrderService = ref.read(workOrderServiceProvider);
-      
-      final workOrderData = {
-        'vendor': vendorId,
-        'category': _selectedCategory.toLowerCase(),
-        'remark_text': _remarkController.text.trim(),
-        'status': _status,
-      };
-
-      // Only add vehicle_other if it's not empty
-      if (_vehicleOtherController.text.trim().isNotEmpty) {
-        workOrderData['vehicle_other'] = _vehicleOtherController.text.trim();
-      }
-
-      // Only add linked_po if it's actually selected (not null or 0)
-      if (_selectedLinkedPo != null && _selectedLinkedPo! > 0) {
-        workOrderData['linked_po'] = _selectedLinkedPo!;
-      }
-
-      if (_isEdit) {
-        await workOrderService.updateWorkOrder(widget.initialWorkOrder!.id!, workOrderData, audioFile: _audioFile);
-      } else {
-        await workOrderService.createWorkOrder(workOrderData, audioFile: _audioFile);
-      }
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_isEdit ? 'Work order updated successfully' : 'Work order created successfully')),
-        );
-        Navigator.pop(context, true); // Return true to indicate success
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_isEdit ? 'Error updating work order: $e' : 'Error creating work order: $e')),
-        );
-      }
-    }
-  }
-} 
+}

@@ -5,7 +5,7 @@ from .models import (
     VehicleType, WorkType, PartyMaster, ContractorMaster, ServiceTypeMaster, UnitTypeMaster,
     Vehicle, VehicleDocument,
     # Maintenance system models
-    Vendor, WorkOrder, PurchaseOrder, POItem, Stock, IssueSlip
+    Vendor, POVendor, WOVendor, WorkOrder, PurchaseOrder, POItem, Stock, IssueSlip
 )
 
 @admin.register(CargoOperation)
@@ -163,6 +163,34 @@ class RevenueStreamAdmin(admin.ModelAdmin):
 
 @admin.register(Vendor)
 class VendorAdmin(admin.ModelAdmin):
+    list_display = ['name', 'contact_person', 'phone_number', 'is_active', 'created_at']
+    list_filter = ['is_active', 'created_at']
+    search_fields = ['name', 'contact_person', 'phone_number']
+    readonly_fields = ['created_by', 'created_at']
+    
+    def save_model(self, request, obj, form, change):
+        if not change:  # Creating new object
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+
+
+
+@admin.register(POVendor)
+class POVendorAdmin(admin.ModelAdmin):
+    list_display = ['name', 'contact_person', 'phone_number', 'is_active', 'created_at']
+    list_filter = ['is_active', 'created_at']
+    search_fields = ['name', 'contact_person', 'phone_number']
+    readonly_fields = ['created_by', 'created_at']
+    
+    def save_model(self, request, obj, form, change):
+        if not change:  # Creating new object
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(WOVendor)
+class WOVendorAdmin(admin.ModelAdmin):
     list_display = ['name', 'contact_person', 'phone_number', 'is_active', 'created_at']
     list_filter = ['is_active', 'created_at']
     search_fields = ['name', 'contact_person', 'phone_number']

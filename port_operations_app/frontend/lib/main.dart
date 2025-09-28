@@ -31,7 +31,8 @@ import 'features/miscellaneous/screens/miscellaneous_detail_screen.dart';
 import 'features/wallet/screens/expense_approvals_screen.dart';
 import 'features/wallet/screens/voucher_approvals_screen.dart';
 import 'features/wallet/screens/wallet_management_screen.dart';
-import 'features/maintenance/screens/vendors_screen.dart';
+
+import 'features/maintenance/screens/vendors_panel_screen.dart';
 import 'features/maintenance/screens/work_orders_screen.dart';
 import 'features/maintenance/screens/purchase_orders_screen.dart';
 import 'features/maintenance/screens/create_purchase_order_screen.dart';
@@ -373,16 +374,13 @@ class PortOperationsApp extends ConsumerWidget {
           name: 'maintenance-purchase-orders-new',
           builder: (context, state) => const CreatePurchaseOrderScreen(),
         ),
+
         GoRoute(
-          path: '/maintenance/vendors',
-          name: 'maintenance-vendors',
-          builder: (context, state) => const VendorsScreen(),
+          path: '/maintenance/vendors-panel',
+          name: 'maintenance-vendors-panel',
+          builder: (context, state) => const VendorsPanelScreen(),
         ),
-        GoRoute(
-          path: '/maintenance/vendors/new',
-          name: 'maintenance-vendors-new',
-          builder: (context, state) => const _PlaceholderScreen(title: 'Add Vendor'),
-        ),
+
         GoRoute(
           path: '/vehicles',
           name: 'vehicles',

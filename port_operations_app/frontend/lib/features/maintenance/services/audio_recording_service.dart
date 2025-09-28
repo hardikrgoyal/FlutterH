@@ -6,23 +6,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audio_waveforms/audio_waveforms.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
-import 'dart:html' as html if (dart.library.html) 'dart:html';
 
 class AudioRecordingService {
   PlayerController? _playerController;
-  
-  // HTML5 MediaRecorder for web
-  html.MediaRecorder? _webRecorder;
-  html.MediaStream? _mediaStream;
-  List<html.Blob> _recordedChunks = [];
-  String? _blobUrl;
-  Timer? _recordingTimer;
-  html.AudioElement? _audioElement;
   
   bool _isRecording = false;
   bool _isPlaying = false;
   String? _currentRecordingPath;
   Duration _recordingDuration = Duration.zero;
+  Timer? _recordingTimer;
 
   bool get isRecording => _isRecording;
   bool get isPlaying => _isPlaying;
@@ -32,17 +24,7 @@ class AudioRecordingService {
 
   Future<void> initialize() async {
     try {
-      if (!kIsWeb) {
-        _playerController = PlayerController();
-      }
-      
-      // Initialize HTML5 audio element for web playback
-      if (kIsWeb) {
-        _audioElement = html.AudioElement();
-        _audioElement!.style.display = 'none';
-        html.document.body!.append(_audioElement!);
-      }
-      
+      _playerController = PlayerController();
       print('Audio service initialized successfully');
     } catch (e) {
       print('Error initializing audio service: $e');
@@ -52,22 +34,8 @@ class AudioRecordingService {
 
   Future<bool> requestPermission() async {
     try {
-      if (kIsWeb) {
-        // For HTML5, request permission via getUserMedia
-        final constraints = {
-          'audio': {
-            'echoCancellation': true,
-            'noiseSuppression': true,
-            'sampleRate': 44100,
-          }
-        };
-        
-        _mediaStream = await html.window.navigator.mediaDevices!.getUserMedia(constraints);
-        return true;
-      } else {
-        final status = await Permission.microphone.request();
-        return status == PermissionStatus.granted;
-      }
+      final status = await Permission.microphone.request();
+      return status == PermissionStatus.granted;
     } catch (e) {
       print('Error requesting microphone permission: $e');
       return false;
@@ -77,89 +45,21 @@ class AudioRecordingService {
   Future<bool> startRecording() async {
     try {
       // Check permission
-      if (!kIsWeb) {
-        final hasPermission = await requestPermission();
-        if (!hasPermission) {
-          throw Exception('Microphone permission denied');
-        }
-      } else {
-        // For web, request permission if not already granted
-        if (_mediaStream == null) {
-          final hasPermission = await requestPermission();
-          if (!hasPermission) {
-            throw Exception('Microphone permission denied');
-          }
-        }
+      final hasPermission = await requestPermission();
+      if (!hasPermission) {
+        throw Exception('Microphone permission denied');
       }
 
-      if (kIsWeb) {
-        return await _startWebRecording();
-      } else {
-        return await _startMobileRecording();
-      }
+      return await _startMobileRecording();
     } catch (e) {
       print('Error starting recording: $e');
       _isRecording = false;
-      
-      if (kIsWeb) {
-        throw Exception('Failed to start recording on web. Please ensure microphone access is allowed.');
-      } else {
-        throw Exception('Failed to start recording. Please check microphone permissions.');
-      }
-    }
-  }
-
-  Future<bool> _startWebRecording() async {
-    try {
-      if (_mediaStream == null) {
-        final constraints = {
-          'audio': {
-            'echoCancellation': true,
-            'noiseSuppression': true,
-            'sampleRate': 44100,
-          }
-        };
-        
-        _mediaStream = await html.window.navigator.mediaDevices!.getUserMedia(constraints);
-      }
-
-      // Create MediaRecorder with WebM format
-      _webRecorder = html.MediaRecorder(_mediaStream!, {
-        'mimeType': 'audio/webm;codecs=opus'
-      });
-
-      _recordedChunks.clear();
-
-      // Listen for data chunks
-      _webRecorder!.addEventListener('dataavailable', (html.Event event) {
-        final blob = (event as html.BlobEvent).data;
-        if (blob != null) {
-          _recordedChunks.add(blob);
-        }
-      });
-
-      // Listen for recording stop
-      _webRecorder!.addEventListener('stop', (html.Event event) {
-        _finalizeWebRecording();
-      });
-
-      _webRecorder!.start(100); // Collect data every 100ms
-      _isRecording = true;
-      _recordingDuration = Duration.zero;
-      _startRecordingTimer();
-      print('Started HTML5 web recording');
-      return true;
-    } catch (e) {
-      print('Error starting HTML5 web recording: $e');
-      rethrow;
+      throw Exception('Failed to start recording. Please check microphone permissions.');
     }
   }
 
   Future<bool> _startMobileRecording() async {
     try {
-      // For mobile, we'll create a simple mock recording since flutter_sound has issues
-      // In a real implementation, you would use a proper mobile audio recording solution
-      
       // Generate file path
       final tempDir = await getTemporaryDirectory();
       final fileName = 'audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
@@ -187,56 +87,16 @@ class AudioRecordingService {
     });
   }
 
-  void _finalizeWebRecording() {
-    try {
-      if (_recordedChunks.isNotEmpty) {
-        final blob = html.Blob(_recordedChunks, 'audio/webm');
-        _blobUrl = html.Url.createObjectUrl(blob);
-        _currentRecordingPath = _blobUrl;
-        print('Web recording finalized: $_currentRecordingPath');
-      }
-    } catch (e) {
-      print('Error finalizing web recording: $e');
-    }
-  }
-
   Future<String?> stopRecording() async {
     try {
       if (!_isRecording) return null;
       
-      if (kIsWeb && _webRecorder != null) {
-        return await _stopWebRecording();
-      } else {
-        return await _stopMobileRecording();
-      }
+      return await _stopMobileRecording();
     } catch (e) {
       print('Error stopping recording: $e');
       _isRecording = false;
       _recordingDuration = Duration.zero;
       throw Exception('Failed to stop recording: $e');
-    }
-  }
-
-  Future<String?> _stopWebRecording() async {
-    try {
-      if (_webRecorder != null && _webRecorder!.state == 'recording') {
-        _webRecorder!.stop();
-        
-        // Wait for stop event to fire
-        await Future.delayed(const Duration(milliseconds: 500));
-        
-        // Clean up
-        _mediaStream?.getTracks().forEach((track) => track.stop());
-        _mediaStream = null;
-      }
-      
-      _isRecording = false;
-      _recordingTimer?.cancel();
-      
-      return _currentRecordingPath;
-    } catch (e) {
-      print('Error stopping web recording: $e');
-      rethrow;
     }
   }
 
@@ -256,14 +116,7 @@ class AudioRecordingService {
     try {
       if (!_isRecording) return;
       
-      if (kIsWeb && _webRecorder != null) {
-        _webRecorder!.stop();
-        _mediaStream?.getTracks().forEach((track) => track.stop());
-        _recordedChunks.clear();
-        _blobUrl = null;
-      }
-      
-      if (!kIsWeb && _currentRecordingPath != null) {
+      if (_currentRecordingPath != null) {
         final file = File(_currentRecordingPath!);
         if (await file.exists()) {
           await file.delete();
@@ -283,49 +136,11 @@ class AudioRecordingService {
 
   Future<void> playAudio(String audioPath) async {
     try {
-      if (kIsWeb) {
-        await _playWebAudio(audioPath);
-      } else {
-        await _playMobileAudio(audioPath);
-      }
+      await _playMobileAudio(audioPath);
     } catch (e) {
       print('Error playing audio: $e');
       _isPlaying = false;
       throw Exception('Failed to play audio: $e');
-    }
-  }
-
-  Future<void> _playWebAudio(String audioPath) async {
-    try {
-      _isPlaying = true;
-      print('Playing web audio: $audioPath');
-      
-      if (_audioElement != null) {
-        // Use HTML5 audio element for playback
-        _audioElement!.src = audioPath;
-        _audioElement!.load();
-        
-        // Listen for playback events
-        _audioElement!.onEnded.listen((event) {
-          _isPlaying = false;
-          print('Web audio playback completed');
-        });
-        
-        _audioElement!.onError.listen((event) {
-          _isPlaying = false;
-          print('Web audio playback error: ${event.toString()}');
-        });
-        
-        // Start playback
-        await _audioElement!.play();
-      } else {
-        throw Exception('Audio element not initialized');
-      }
-      
-    } catch (e) {
-      _isPlaying = false;
-      print('Error playing web audio: $e');
-      rethrow;
     }
   }
 
@@ -368,12 +183,7 @@ class AudioRecordingService {
     try {
       if (!_isPlaying) return;
       
-      if (kIsWeb && _audioElement != null) {
-        _audioElement!.pause();
-        _audioElement!.currentTime = 0;
-      } else {
-        await _playerController?.stopPlayer();
-      }
+      await _playerController?.stopPlayer();
       _isPlaying = false;
       print('Audio playback stopped');
     } catch (e) {
@@ -386,11 +196,7 @@ class AudioRecordingService {
     try {
       if (!_isPlaying) return;
       
-      if (kIsWeb && _audioElement != null) {
-        _audioElement!.pause();
-      } else {
-        await _playerController?.pausePlayer();
-      }
+      await _playerController?.pausePlayer();
       _isPlaying = false;
       print('Audio playback paused');
     } catch (e) {
@@ -416,21 +222,6 @@ class AudioRecordingService {
       await stopAudio();
       
       _playerController?.dispose();
-      
-      // Clean up web resources
-      _webRecorder = null;
-      _mediaStream = null;
-      _recordedChunks.clear();
-      if (_blobUrl != null) {
-        html.Url.revokeObjectUrl(_blobUrl!);
-        _blobUrl = null;
-      }
-      
-      // Remove audio element
-      if (_audioElement != null) {
-        _audioElement!.remove();
-        _audioElement = null;
-      }
       
       print('Audio service disposed');
     } catch (e) {
@@ -717,38 +508,20 @@ class _AudioRecordingWidgetState extends ConsumerState<AudioRecordingWidget>
       await audioService.playAudio(audioPath);
       
       // Monitor playback state for mobile
-      if (!kIsWeb) {
-        Timer.periodic(const Duration(milliseconds: 500), (timer) {
-          if (!mounted) {
-            timer.cancel();
-            return;
-          }
-          
-          final isStillPlaying = audioService.isCurrentlyPlaying;
-          if (!isStillPlaying && _isPlayingAudio) {
-            setState(() {
-              _isPlayingAudio = false;
-            });
-            timer.cancel();
-          }
-        });
-      } else {
-        // For web, HTML5 audio element handles its own events
-        Timer.periodic(const Duration(milliseconds: 500), (timer) {
-          if (!mounted) {
-            timer.cancel();
-            return;
-          }
-          
-          final isStillPlaying = audioService.isCurrentlyPlaying;
-          if (!isStillPlaying && _isPlayingAudio) {
-            setState(() {
-              _isPlayingAudio = false;
-            });
-            timer.cancel();
-          }
-        });
-      }
+      Timer.periodic(const Duration(milliseconds: 500), (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+        
+        final isStillPlaying = audioService.isCurrentlyPlaying;
+        if (!isStillPlaying && _isPlayingAudio) {
+          setState(() {
+            _isPlayingAudio = false;
+          });
+          timer.cancel();
+        }
+      });
       
     } catch (e) {
       _showError(e.toString().replaceAll('Exception: ', ''));

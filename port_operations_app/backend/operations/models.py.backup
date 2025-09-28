@@ -716,54 +716,9 @@ class RevenueStream(models.Model):
 
 # === MAINTENANCE SYSTEM MODELS ===
 
-class POVendor(models.Model):
-    """
-    Vendor data for Purchase Orders
-    """
-    name = models.CharField(max_length=100)
-    contact_person = models.CharField(max_length=100, blank=True, null=True)
-    phone_number = models.CharField(max_length=20, blank=True, null=True)
-    email = models.EmailField(blank=True, null=True)
-    address = models.TextField(blank=True, null=True)
-    is_active = models.BooleanField(default=True)
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    def __str__(self):
-        return self.name
-    
-    class Meta:
-        ordering = ['name']
-        verbose_name = 'PO Vendor'
-        verbose_name_plural = 'PO Vendors'
-
-
-class WOVendor(models.Model):
-    """
-    Vendor data for Work Orders
-    """
-    name = models.CharField(max_length=100)
-    contact_person = models.CharField(max_length=100, blank=True, null=True)
-    phone_number = models.CharField(max_length=20, blank=True, null=True)
-    email = models.EmailField(blank=True, null=True)
-    address = models.TextField(blank=True, null=True)
-    is_active = models.BooleanField(default=True)
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    def __str__(self):
-        return self.name
-    
-    class Meta:
-        ordering = ['name']
-        verbose_name = 'WO Vendor'
-        verbose_name_plural = 'WO Vendors'
-
-
-# Keep the old Vendor model for backward compatibility during migration
 class Vendor(models.Model):
     """
-    Legacy vendor model - will be removed after migration
+    Master data for vendors/suppliers used in PO and WO
     """
     name = models.CharField(max_length=100, unique=True)
     contact_person = models.CharField(max_length=100, blank=True, null=True)
@@ -805,7 +760,7 @@ class WorkOrder(models.Model):
     ]
     
     wo_id = models.CharField(max_length=20, unique=True, editable=False)  # Auto-generated
-    vendor = models.ForeignKey(WOVendor, on_delete=models.CASCADE, related_name='work_orders')
+    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, related_name='work_orders')
     vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='work_orders', blank=True, null=True)
     vehicle_other = models.CharField(max_length=100, blank=True, null=True, help_text="For non-fleet vehicles")
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
@@ -867,7 +822,7 @@ class PurchaseOrder(models.Model):
     ]
     
     po_id = models.CharField(max_length=20, unique=True, editable=False)  # Auto-generated
-    vendor = models.ForeignKey(POVendor, on_delete=models.CASCADE, related_name='purchase_orders')
+    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, related_name='purchase_orders')
     vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='purchase_orders', blank=True, null=True)
     vehicle_other = models.CharField(max_length=100, blank=True, null=True, help_text="For non-fleet vehicles")
     for_stock = models.BooleanField(default=False, help_text="Items for stock instead of specific vehicle")

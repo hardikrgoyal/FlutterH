@@ -12,7 +12,7 @@ from .models import (
     VehicleType, WorkType, PartyMaster, ContractorMaster, ServiceTypeMaster, UnitTypeMaster,
     Vehicle, VehicleDocument,
     # Maintenance system models
-    Vendor, WorkOrder, PurchaseOrder, POItem, Stock, IssueSlip, WorkOrderPurchaseLink, AuditTrail
+    Vendor, POVendor, WOVendor, WorkOrder, PurchaseOrder, POItem, Stock, IssueSlip, WorkOrderPurchaseLink, AuditTrail
 )
 from .serializers import (
     CargoOperationSerializer, RateMasterSerializer, EquipmentSerializer, EquipmentRateMasterSerializer,
@@ -21,7 +21,7 @@ from .serializers import (
     PartyMasterSerializer, ContractorMasterSerializer, ServiceTypeMasterSerializer, UnitTypeMasterSerializer,
     VehicleSerializer, VehicleDocumentSerializer, VehicleDocumentHistorySerializer,
     # Maintenance system serializers
-    VendorSerializer, WorkOrderSerializer, PurchaseOrderSerializer, POItemSerializer,
+    VendorSerializer, POVendorSerializer, WOVendorSerializer, WorkOrderSerializer, PurchaseOrderSerializer, POItemSerializer,
     StockSerializer, IssueSlipSerializer, WorkOrderPurchaseLinkSerializer, AuditTrailSerializer
 )
 from authentication.permissions import (
@@ -849,6 +849,48 @@ class VendorViewSet(viewsets.ModelViewSet):
     """
     queryset = Vendor.objects.filter(is_active=True)
     serializer_class = VendorSerializer
+    permission_classes = [CanManageVendors]
+    pagination_class = None  # Disable pagination for master data
+    
+    def get_permissions(self):
+        """
+        Only managers and admins can create/update/delete vendors
+        """
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes = [CanManageVendors]
+        else:
+            permission_classes = [IsSupervisorOrAbove]
+        return [permission() for permission in permission_classes]
+
+
+
+
+class POVendorViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing Purchase Order vendors
+    """
+    queryset = POVendor.objects.filter(is_active=True)
+    serializer_class = POVendorSerializer
+    permission_classes = [CanManageVendors]
+    pagination_class = None  # Disable pagination for master data
+    
+    def get_permissions(self):
+        """
+        Only managers and admins can create/update/delete vendors
+        """
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes = [CanManageVendors]
+        else:
+            permission_classes = [IsSupervisorOrAbove]
+        return [permission() for permission in permission_classes]
+
+
+class WOVendorViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing Work Order vendors
+    """
+    queryset = WOVendor.objects.filter(is_active=True)
+    serializer_class = WOVendorSerializer
     permission_classes = [CanManageVendors]
     pagination_class = None  # Disable pagination for master data
     

@@ -316,7 +316,7 @@ class AppDrawer extends ConsumerWidget {
             'color': AppColors.info,
             'onTap': () {
               Navigator.pop(context);
-              context.go('/maintenance/vendors');
+              context.go('/maintenance/vendors-panel');
             },
           },
         ];
@@ -439,7 +439,7 @@ class AppDrawer extends ConsumerWidget {
             'color': AppColors.info,
             'onTap': () {
               Navigator.pop(context);
-              context.go('/maintenance/vendors');
+              context.go('/maintenance/vendors-panel');
             },
           },
         ];

@@ -22,6 +22,8 @@ router.register(r'revenue-streams', views.RevenueStreamViewSet)
 
 # Maintenance system routes
 router.register(r'vendors', views.VendorViewSet)
+router.register(r'po-vendors', views.POVendorViewSet)
+router.register(r'wo-vendors', views.WOVendorViewSet)
 router.register(r'work-orders', views.WorkOrderViewSet)
 router.register(r'purchase-orders', views.PurchaseOrderViewSet)
 router.register(r'po-items', views.POItemViewSet)
