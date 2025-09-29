@@ -37,7 +37,7 @@ from authentication.permissions import (
     # Maintenance system permissions
     CanCreateWorkOrders, CanManageWorkOrders, CanCreatePurchaseOrders, CanManagePurchaseOrders,
     CanManageVendors, CanEnterBillNumbers, CanManageStock, CanViewStock, CanCreateIssueSlips,
-    CanItemizePurchaseOrders
+    CanItemizePurchaseOrders, CanViewMaintenanceOrders
 )
 
 class CargoOperationViewSet(viewsets.ModelViewSet):
@@ -1034,7 +1034,7 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
         elif self.action in ['update', 'partial_update', 'destroy', 'link_po', 'unlink_po']:
             permission_classes = [CanManageWorkOrders]
         else:
-            permission_classes = [IsSupervisorOrAbove]
+            permission_classes = [CanViewMaintenanceOrders]
         return [permission() for permission in permission_classes]
     
     def perform_update(self, serializer):
@@ -1168,7 +1168,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         elif self.action in ['update', 'partial_update', 'destroy', 'link_wo', 'unlink_wo']:
             permission_classes = [CanManagePurchaseOrders]
         else:
-            permission_classes = [IsSupervisorOrAbove]
+            permission_classes = [CanViewMaintenanceOrders]
         return [permission() for permission in permission_classes]
     
     def perform_update(self, serializer):

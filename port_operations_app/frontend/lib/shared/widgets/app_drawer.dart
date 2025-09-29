@@ -554,6 +554,30 @@ class AppDrawer extends ConsumerWidget {
           },
         ];
 
+      case 'office':
+        return [
+          ...baseItems,
+          // Maintenance System
+          {
+            'title': 'Work Orders',
+            'icon': Icons.build,
+            'color': AppColors.primary,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/maintenance/work-orders');
+            },
+          },
+          {
+            'title': 'Purchase Orders',
+            'icon': Icons.shopping_cart,
+            'color': AppColors.secondary,
+            'onTap': () {
+              Navigator.pop(context);
+              context.go('/maintenance/purchase-orders');
+            },
+          },
+        ];
+
       default:
         return baseItems;
     }

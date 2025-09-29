@@ -56,7 +56,8 @@ class User(AbstractUser):
                 'manage_vehicle_documents', 'view_vehicle_documents',
                 'create_work_orders', 'manage_work_orders', 'create_purchase_orders',
                 'manage_purchase_orders', 'manage_vendors', 'enter_bill_numbers',
-                'manage_stock', 'create_issue_slips', 'itemize_purchase_orders'
+                'manage_stock', 'create_issue_slips', 'itemize_purchase_orders',
+                'view_wallet'
             ],
             'manager': [
                 'create_operations', 'manage_operations', 'approve_supervisor_entries',
@@ -64,7 +65,8 @@ class User(AbstractUser):
                 'manage_vehicle_documents', 'view_vehicle_documents',
                 'create_work_orders', 'manage_work_orders', 'create_purchase_orders',
                 'manage_purchase_orders', 'manage_vendors', 'enter_bill_numbers',
-                'manage_stock', 'create_issue_slips', 'itemize_purchase_orders'
+                'manage_stock', 'create_issue_slips', 'itemize_purchase_orders',
+                'view_wallet'
             ],
             'supervisor': [
                 'field_data_entry', 'view_wallet', 'submit_vouchers',
@@ -73,11 +75,13 @@ class User(AbstractUser):
             ],
             'accountant': [
                 'approve_financial', 'topup_wallets', 'log_tally', 'enter_revenue',
-                'manage_vehicle_documents', 'view_vehicle_documents'
+                'manage_vehicle_documents', 'view_vehicle_documents',
+                'view_wallet'
             ],
             'office': [
                 'itemize_purchase_orders', 'manage_purchase_orders',
-                'manage_vehicle_documents', 'view_vehicle_documents'
+                'manage_vehicle_documents', 'view_vehicle_documents',
+                'view_wallet'
             ]
         }
         

@@ -63,10 +63,10 @@ class User {
   bool get canEditLabourCosts => isAdmin || isManager || isAccountant;
   
   // Maintenance system permissions
-  bool get canCreateWorkOrders => isAdmin || isManager || isSupervisor;
-  bool get canManageWorkOrders => isAdmin || isManager;
-  bool get canCreatePurchaseOrders => isAdmin || isManager || isSupervisor;
-  bool get canManagePurchaseOrders => isAdmin || isManager;
+  bool get canCreateWorkOrders => isAdmin || isManager || isSupervisor || isOffice;
+  bool get canManageWorkOrders => isAdmin || isManager || isOffice;
+  bool get canCreatePurchaseOrders => isAdmin || isManager || isSupervisor || isOffice;
+  bool get canManagePurchaseOrders => isAdmin || isManager || isOffice;
   bool get canManageVendors => isAdmin || isManager;
   bool get canEnterBillNumbers => isAdmin || isManager || isOffice;
   bool get canItemizePurchaseOrders => isAdmin || isManager || isOffice;

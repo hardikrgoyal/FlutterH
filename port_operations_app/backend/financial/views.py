@@ -98,7 +98,17 @@ class WalletBalanceView(generics.GenericAPIView):
     def get(self, request):
         user = request.user
         
-        # Ensure user has wallet access
+        # Allow office to view wallet if they have permission
+        if user.is_office and user.has_permission('view_wallet'):
+            balance = Wallet.get_balance(user)
+            return Response({
+                'user_id': user.id,
+                'username': user.username,
+                'balance': balance,
+                'last_updated': timezone.now()
+            })
+
+        # For other roles, proceed with existing logic
         if user.role == 'accountant':
             return Response({'error': 'Accountants do not have wallets'}, 
                           status=status.HTTP_403_FORBIDDEN)

@@ -70,7 +70,7 @@ class HasWallet(BaseRolePermission):
     """
     Permission for users who have their own wallets (excludes accountants)
     """
-    allowed_roles = ['admin', 'manager', 'supervisor']
+    allowed_roles = ['admin', 'manager', 'supervisor', 'office']
 
 class CanAccessLabourCosts(permissions.BasePermission):
     """
@@ -133,25 +133,25 @@ class CanViewVehicles(BaseRolePermission):
 class CanCreateWorkOrders(BaseRolePermission):
     """
     Permission for creating work orders
-    Admin, Manager, Supervisor can create
+    Admin, Manager, Supervisor and Office can create
     """
-    allowed_roles = ['admin', 'manager', 'supervisor']
+    allowed_roles = ['admin', 'manager', 'supervisor', 'office']
 
 
 class CanManageWorkOrders(BaseRolePermission):
     """
     Permission for full work order management
-    Admin and Manager only
+    Admin, Manager and Office only
     """
-    allowed_roles = ['admin', 'manager']
+    allowed_roles = ['admin', 'manager', 'office']
 
 
 class CanCreatePurchaseOrders(BaseRolePermission):
     """
     Permission for creating purchase orders
-    Admin, Manager, Supervisor can create
+    Admin, Manager, Supervisor and Office can create
     """
-    allowed_roles = ['admin', 'manager', 'supervisor']
+    allowed_roles = ['admin', 'manager', 'supervisor', 'office']
 
 
 class CanManagePurchaseOrders(BaseRolePermission):
@@ -216,3 +216,11 @@ class CanItemizePurchaseOrders(BaseRolePermission):
     Admin, Manager, Office, and Office Boy can itemize
     """
     allowed_roles = ['admin', 'manager', 'office', 'office_boy'] 
+
+
+class CanViewMaintenanceOrders(BaseRolePermission):
+    """
+    Permission for users who can view Work Orders and Purchase Orders
+    Admin, Manager, Supervisor and Office can view
+    """
+    allowed_roles = ['admin', 'manager', 'supervisor', 'office'] 
