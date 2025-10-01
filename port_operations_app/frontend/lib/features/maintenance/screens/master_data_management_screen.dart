@@ -153,8 +153,8 @@ class _MasterDataManagementScreenState extends ConsumerState<MasterDataManagemen
         return Icon(MdiIcons.swapHorizontal, size: 20);
       case 'maintenance_categories':
         return Icon(MdiIcons.wrench, size: 20);
-      case 'vehicle_types_list':
-        return Icon(MdiIcons.carMultiple, size: 20);
+      case 'equipment_vehicle_types':
+        return Icon(MdiIcons.truck, size: 20);
       case 'document_types':
         return Icon(MdiIcons.fileDocumentOutline, size: 20);
       case 'priority_levels':

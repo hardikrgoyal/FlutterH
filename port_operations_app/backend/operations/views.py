@@ -73,11 +73,40 @@ class CargoOperationViewSet(viewsets.ModelViewSet):
 class VehicleTypeViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing vehicle types
+    Now unified with master data management system
     """
-    queryset = VehicleType.objects.filter(is_active=True)
+    queryset = VehicleType.objects.filter(is_active=True).select_related('list_item')
     serializer_class = VehicleTypeSerializer
     permission_classes = [CanViewVehicles]
     pagination_class = None  # Disable pagination for master data
+    
+    def list(self, request, *args, **kwargs):
+        """
+        Return vehicle types from unified master data list
+        """
+        from .models import ListTypeMaster
+        try:
+            # Get vehicle types from master data
+            vehicle_types_list = ListTypeMaster.objects.get(code='equipment_vehicle_types', is_active=True)
+            vehicle_types = vehicle_types_list.items.filter(is_active=True).order_by('sort_order')
+            
+            # Convert to the expected format
+            data = []
+            for item in vehicle_types:
+                data.append({
+                    'id': item.id,  # Use list item ID
+                    'name': item.name,
+                    'is_active': item.is_active,
+                    'created_at': item.created_at.isoformat(),
+                    'created_by': item.created_by.id,
+                    'created_by_name': item.created_by.username,
+                    'list_item': item.id
+                })
+            
+            return Response(data)
+        except ListTypeMaster.DoesNotExist:
+            # Fallback to original behavior if master data not available
+            return super().list(request, *args, **kwargs)
     
     def get_permissions(self):
         """
@@ -88,6 +117,45 @@ class VehicleTypeViewSet(viewsets.ModelViewSet):
         else:
             permission_classes = [CanViewVehicles]
         return [permission() for permission in permission_classes]
+    
+    def create(self, request, *args, **kwargs):
+        """
+        Creating vehicle types should now be done through master data management
+        """
+        return Response(
+            {
+                'error': 'Vehicle types should now be managed through Master Data Management',
+                'redirect': '/maintenance/master-data',
+                'list_type': 'equipment_vehicle_types'
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    def update(self, request, *args, **kwargs):
+        """
+        Updating vehicle types should now be done through master data management
+        """
+        return Response(
+            {
+                'error': 'Vehicle types should now be managed through Master Data Management',
+                'redirect': '/maintenance/master-data',
+                'list_type': 'equipment_vehicle_types'
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    def destroy(self, request, *args, **kwargs):
+        """
+        Deleting vehicle types should now be done through master data management
+        """
+        return Response(
+            {
+                'error': 'Vehicle types should now be managed through Master Data Management',
+                'redirect': '/maintenance/master-data',
+                'list_type': 'equipment_vehicle_types'
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 class WorkTypeViewSet(viewsets.ModelViewSet):
     """
@@ -379,12 +447,22 @@ class VehicleDocumentViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='document-types')
     def document_types(self, request):
         """
-        Get available document types
+        Get available document types from master data
         """
-        return Response([
-            {'value': choice[0], 'label': choice[1]} 
-            for choice in VehicleDocument.DOCUMENT_TYPE_CHOICES
-        ])
+        from .models import ListTypeMaster
+        try:
+            document_types_list = ListTypeMaster.objects.get(code='document_types', is_active=True)
+            document_types = document_types_list.items.filter(is_active=True).order_by('sort_order')
+            return Response([
+                {'value': item.code or item.name.lower().replace(' ', '_'), 'label': item.name}
+                for item in document_types
+            ])
+        except ListTypeMaster.DoesNotExist:
+            # Fallback to hardcoded choices if master data not available
+            return Response([
+                {'value': choice[0], 'label': choice[1]} 
+                for choice in VehicleDocument.DOCUMENT_TYPE_CHOICES
+            ])
 
 class RateMasterViewSet(viewsets.ModelViewSet):
     """

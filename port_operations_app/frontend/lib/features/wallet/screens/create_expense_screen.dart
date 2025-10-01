@@ -8,6 +8,7 @@ import '../wallet_provider.dart';
 import '../../auth/auth_service.dart';
 import '../../../shared/widgets/vehicle_search_dropdown.dart';
 import '../../../shared/models/vehicle_model.dart';
+import '../../../features/maintenance/services/list_management_service.dart';
 
 class CreateExpenseScreen extends ConsumerStatefulWidget {
   const CreateExpenseScreen({super.key});
@@ -27,7 +28,7 @@ class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen> {
   final _otherChargesController = TextEditingController(text: '0.00');
   final _newVehicleTypeController = TextEditingController();
 
-  String _selectedVehicleType = 'Loader';
+  String _selectedVehicleType = '';
   String _selectedGate = 'north_gate';
   String _selectedInOut = 'In';
   DateTime _selectedDateTime = DateTime.now();
@@ -42,11 +43,7 @@ class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen> {
   XFile? _selectedPhoto;
   final ImagePicker _imagePicker = ImagePicker();
 
-  List<String> _vehicleTypes = [
-    'Loader',
-    'Excavator',
-    'Truck/Trailer',
-  ];
+  List<String> _vehicleTypes = [];
 
   final List<Map<String, String>> _gateOptions = [
     {'value': 'north_gate', 'label': 'North Gate'},
@@ -68,6 +65,30 @@ class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen> {
     _customsAmountController.addListener(_updateTotal);
     _roadTaxDaysController.addListener(_updateTotal);
     _otherChargesController.addListener(_updateTotal);
+    _loadVehicleTypes();
+  }
+
+  Future<void> _loadVehicleTypes() async {
+    try {
+      final listData = await ref.read(listManagementProvider.notifier).getListData('equipment_vehicle_types');
+      if (listData != null && mounted) {
+        setState(() {
+          _vehicleTypes = listData.items.map((item) => item.name).toList();
+          // Set default vehicle type if list is not empty
+          if (_vehicleTypes.isNotEmpty && !_vehicleTypes.contains(_selectedVehicleType)) {
+            _selectedVehicleType = _vehicleTypes.first;
+          }
+        });
+      }
+    } catch (e) {
+      // Fallback to hardcoded types if master data fails
+      if (mounted) {
+        setState(() {
+          _vehicleTypes = ['Loader', 'Excavator', 'Truck/Trailer'];
+          _selectedVehicleType = _vehicleTypes.first;
+        });
+      }
+    }
   }
 
   @override
@@ -122,7 +143,7 @@ class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen> {
                       _customVehicleNumber = null;
                     } else {
                       // Reset to default vehicle type when "Others" is selected
-                      _selectedVehicleType = 'Loader';
+                      _selectedVehicleType = _vehicleTypes.isNotEmpty ? _vehicleTypes.first : '';
                     }
                   });
                 },
@@ -244,7 +265,7 @@ class _CreateExpenseScreenState extends ConsumerState<CreateExpenseScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         DropdownButtonFormField<String>(
-          value: _selectedVehicleType,
+          value: _vehicleTypes.contains(_selectedVehicleType) ? _selectedVehicleType : null,
           decoration: InputDecoration(
             labelText: isAutoFilled ? 'Vehicle Type (Auto-filled)' : 'Vehicle Type',
             border: OutlineInputBorder(

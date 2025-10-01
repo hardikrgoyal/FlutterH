@@ -590,8 +590,7 @@ class _ListItemDetailScreenState extends ConsumerState<ListItemDetailScreen>
         return MdiIcons.swapHorizontal;
       case 'maintenance_categories':
         return MdiIcons.wrench;
-      case 'vehicle_types_list':
-        return MdiIcons.carMultiple;
+
       case 'document_types':
         return MdiIcons.fileDocumentOutline;
       case 'priority_levels':

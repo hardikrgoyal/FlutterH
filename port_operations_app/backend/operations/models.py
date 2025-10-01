@@ -86,14 +86,46 @@ class CargoOperation(models.Model):
 class VehicleType(models.Model):
     """
     Master data for vehicle types that can be hired
+    Now references the master data list system for unified management
     """
+    # Keep original fields for backward compatibility during migration
     name = models.CharField(max_length=50, unique=True)
     is_active = models.BooleanField(default=True)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     
+    # New field linking to master data list
+    list_item = models.OneToOneField(
+        'ListItemMaster',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        help_text='Reference to master data list item'
+    )
+    
     def __str__(self):
         return self.name
+    
+    @property
+    def display_name(self):
+        """Get the display name from list item if available, otherwise use name"""
+        if self.list_item:
+            return self.list_item.name
+        return self.name
+    
+    @property
+    def code(self):
+        """Get the code from list item if available"""
+        if self.list_item:
+            return self.list_item.code
+        return None
+    
+    def save(self, *args, **kwargs):
+        # Sync with list item if it exists
+        if self.list_item:
+            self.name = self.list_item.name
+            self.is_active = self.list_item.is_active
+        super().save(*args, **kwargs)
     
     class Meta:
         ordering = ['name']
