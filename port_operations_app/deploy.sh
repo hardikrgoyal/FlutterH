@@ -49,10 +49,12 @@ echo -e "${YELLOW}📁 Creating application directory...${NC}"
 sudo mkdir -p $APP_DIR
 sudo chown $USER:$USER $APP_DIR
 
-# Clone the repository
+# Clone or update the repository (force sync to remote to avoid local dirty state)
 echo -e "${YELLOW}📥 Cloning repository...${NC}"
 if [ -d "$APP_DIR/.git" ]; then
-    cd $APP_DIR && git pull origin main
+    cd $APP_DIR
+    git fetch origin main
+    git reset --hard origin/main
 else
     git clone https://github.com/hardikrgoyal/FlutterH.git $APP_DIR
     cd $APP_DIR
