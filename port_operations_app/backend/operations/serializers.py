@@ -95,8 +95,52 @@ class UnitTypeMasterSerializer(serializers.ModelSerializer):
         validated_data['created_by'] = self.context['request'].user
         return super().create(validated_data)
 
+class VehicleTypeField(serializers.Field):
+    """
+    Custom field to handle conversion between ListItemMaster IDs and VehicleType instances
+    """
+    def to_representation(self, value):
+        # For output, return the VehicleType ID
+        return value.id if value else None
+    
+    def to_internal_value(self, data):
+        if data is None:
+            return None
+            
+        from .models import VehicleType, ListItemMaster
+        
+        try:
+            # First try to find VehicleType with this list_item_id
+            vehicle_type = VehicleType.objects.filter(list_item_id=data).first()
+            if vehicle_type:
+                return vehicle_type
+            
+            # If not found by list_item_id, check if it's already a VehicleType ID
+            try:
+                vehicle_type = VehicleType.objects.get(id=data)
+                return vehicle_type
+            except VehicleType.DoesNotExist:
+                # If still not found, try to find by ListItemMaster and create mapping
+                try:
+                    list_item = ListItemMaster.objects.get(id=data)
+                    # Find or create corresponding VehicleType
+                    vehicle_type, created = VehicleType.objects.get_or_create(
+                        list_item=list_item,
+                        defaults={
+                            'name': list_item.name,
+                            'is_active': list_item.is_active,
+                            'created_by_id': 1  # Default to admin user, will be overridden in create method
+                        }
+                    )
+                    return vehicle_type
+                except ListItemMaster.DoesNotExist:
+                    raise serializers.ValidationError(f"Invalid vehicle type ID: {data}")
+        except Exception as e:
+            raise serializers.ValidationError(f"Error processing vehicle type: {str(e)}")
+
 class VehicleSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    vehicle_type = VehicleTypeField()
     vehicle_type_name = serializers.CharField(source='vehicle_type.name', read_only=True)
     ownership_display = serializers.CharField(source='get_ownership_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
@@ -117,6 +161,13 @@ class VehicleSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         validated_data['created_by'] = self.context['request'].user
+        
+        # Update the created_by for any newly created VehicleType
+        vehicle_type = validated_data.get('vehicle_type')
+        if vehicle_type and vehicle_type.created_by_id == 1:  # Default admin user
+            vehicle_type.created_by = self.context['request'].user
+            vehicle_type.save()
+        
         return super().create(validated_data)
 
 class VehicleDocumentSerializer(serializers.ModelSerializer):
