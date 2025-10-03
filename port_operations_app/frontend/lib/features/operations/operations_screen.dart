@@ -312,7 +312,7 @@ class _OperationsScreenState extends ConsumerState<OperationsScreen> {
                           ),
                         ),
                       ),
-                      // Add edit button for admin and manager users
+                      // Add edit/delete buttons for admin and manager users
                       if (user != null && user.canEditOperations) ...[
                         const SizedBox(width: 8),
                         IconButton(
@@ -323,6 +323,15 @@ class _OperationsScreenState extends ConsumerState<OperationsScreen> {
                             context.go('/operations/${operation.id}/edit');
                           },
                           tooltip: 'Edit Operation',
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          iconSize: 20,
+                          color: AppColors.error,
+                          onPressed: () {
+                            _confirmDeleteOperation(operation);
+                          },
+                          tooltip: 'Delete Operation',
                         ),
                       ],
                     ],
@@ -472,5 +481,67 @@ class _OperationsScreenState extends ConsumerState<OperationsScreen> {
         ],
       ),
     );
+  }
+
+  void _confirmDeleteOperation(CargoOperation operation) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Operation'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Are you sure you want to delete "${operation.operationName}"?'),
+            const SizedBox(height: 12),
+            const Text(
+              'This action cannot be undone.',
+              style: TextStyle(
+                color: AppColors.error,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteOperation(operation.id);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: AppColors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteOperation(int operationId) async {
+    final notifier = ref.read(operationsManagementProvider.notifier);
+    final success = await notifier.deleteOperation(operationId);
+    if (!mounted) return;
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Operation deleted successfully'),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to delete operation'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 } 
